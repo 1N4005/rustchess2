@@ -1,7 +1,15 @@
+use std::collections::HashMap;
+
 use rustchess2::game::{Board, Move};
 
 pub mod eval;
 pub mod search;
+
+pub enum TTEntryFlag {
+    Exact,
+    LowerBound,
+    UpperBound,
+}
 
 pub struct PvNode {
     pub next: Option<Box<PvNode>>,
@@ -19,17 +27,26 @@ impl PvNode {
     }
 }
 
+pub struct TTEntry {
+    pub eval: i32,
+    pub depth: u8,
+    pub flag: TTEntryFlag,
+    pub best_move: Option<Move>,
+}
+
 pub struct Engine {
     // none if move has not been found yet, otherwise Some()
     pub best_move: Option<Move>,
     pub board: Board,
+    pub transposition_table: HashMap<u64, TTEntry>,
 }
 
 impl Engine {
     pub fn new(board: Board) -> Engine {
         Engine {
             best_move: None,
-            board: board,
+            board,
+            transposition_table: HashMap::new(),
         }
     }
 }

@@ -2,7 +2,7 @@ mod engine;
 mod tests;
 mod uci;
 
-use std::io;
+use std::{io, time::Duration};
 
 use engine::{
     search::{MAX, MIN},
@@ -44,9 +44,11 @@ fn main() {
 fn cli() {
     // for debugging stuff
     let board: Board = BoardBuilder::new()
-        // .set_position(rustchess2::game::STARTPOS.to_owned())
+        //.set_position(rustchess2::game::STARTPOS.to_owned())
         // .set_position(rustchess2::game::KIWIPETE.to_owned())
-        .set_position("r3r1k1/pppb3p/7R/4p1P1/2Pp2P1/1P3P2/P7/4RK2 b - - 2 25".to_owned())
+        .set_position("8/8/8/8/8/1k1K4/2R5/8 w - - 0 1".to_owned())
+        // .set_position("8/8/8/8/2R5/1k1K4/8/8 b - - 1 1".to_owned())
+        // .set_position("8/8/8/8/2R5/3K4/1k6/8 w - - 2 2".to_owned())
         .build();
     // measure!({
     //     println!("{}", board.perft(5, 0))
@@ -67,27 +69,35 @@ fn cli() {
         if moves.len() == 0 {
             break;
         }
-        let mut result: (i32, PvNode) = (0, PvNode::new(None));
+        // let mut result: (i32, PvNode) = (0, PvNode::new(None));
+        // measure!({
+        //     result = engine.minimax(12, 0, MIN, MAX, PvNode::new(None), &mut Vec::new());
+        // });
+        // println!(
+        //     "Eval: {}, Move: {} / {}",
+        //     result.0,
+        //     engine.best_move.unwrap().to_uci(),
+        //     engine.best_move.unwrap().to_san(&mut engine.board).unwrap()
+        // );
         measure!({
-            result = engine.search(4, 0, MIN, MAX, PvNode::new(None));
+            engine.iterative_deepening_search(16, false, Instant::now(), Duration::from_secs(0));
         });
         println!(
-            "Eval: {}, Move: {} / {}",
-            result.0,
+            "Move: {} / {}",
             engine.best_move.unwrap().to_uci(),
             engine.best_move.unwrap().to_san(&mut engine.board).unwrap()
         );
 
-        let mut pv = result.1;
-        while match pv.next {
-            Some(_) => true,
-            None => false,
-        } {
-            print!("{} ", pv.best_move.unwrap().to_uci());
+        // let mut pv = result.1;
+        // while match pv.next {
+        //     Some(_) => true,
+        //     None => false,
+        // } {
+        //     print!("{} ", pv.best_move.unwrap().to_uci());
 
-            pv = *pv.next.unwrap();
-        }
-        println!();
+        //     pv = *pv.next.unwrap();
+        // }
+        // println!();
         let mut input: String = String::new();
         io::stdin()
             .read_line(&mut input)
@@ -95,6 +105,7 @@ fn cli() {
         let input: &str = &*input.trim();
         let m = Move::from_uci(input, engine.board);
         let _ = engine.board.make_move(m);
+        engine.transposition_table.clear();
     }
 
     if board.is_in_check(

@@ -1,3 +1,4 @@
+pub mod genkeys;
 pub mod movegen;
 pub mod perft;
 pub mod san;
@@ -135,7 +136,7 @@ pub fn square_from_uci(uci: &str) -> (u8, u8) {
     (rank, file as u8 - 97)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
     pub from: (u8, u8),
     pub to: (u8, u8),
@@ -253,6 +254,33 @@ pub struct Bitboards {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct HashKeys {
+    pub white_pawn: [[u64; 8]; 8],
+    pub white_bishop: [[u64; 8]; 8],
+    pub white_knight: [[u64; 8]; 8],
+    pub white_rook: [[u64; 8]; 8],
+    pub white_queen: [[u64; 8]; 8],
+    pub white_king: [[u64; 8]; 8],
+
+    pub black_pawn: [[u64; 8]; 8],
+    pub black_bishop: [[u64; 8]; 8],
+    pub black_knight: [[u64; 8]; 8],
+    pub black_rook: [[u64; 8]; 8],
+    pub black_queen: [[u64; 8]; 8],
+    pub black_king: [[u64; 8]; 8],
+
+    pub turn_key: u64,
+
+    pub white_ks: u64,
+    pub white_qs: u64,
+    pub black_ks: u64,
+    pub black_qs: u64,
+
+    // one key for each file
+    pub en_passant_square_file: [u64; 8],
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Board {
     // board[rank][file]
     // rank index: 8th rank -> 0, 1st rank -> 7
@@ -277,6 +305,9 @@ pub struct Board {
     pub ray_attacks: [[[u64; 8]; 8]; 8],
     pub white_king_position: (u8, u8),
     pub black_king_position: (u8, u8),
+
+    pub hash_keys: HashKeys,
+    pub hash: u64,
 }
 
 impl Board {
@@ -482,6 +513,7 @@ impl Board {
         let prev_fullmoves = self.fullmoves;
         let prev_white_king_position = self.white_king_position;
         let prev_black_king_position = self.black_king_position;
+        let prev_hash = self.hash;
 
         // check that there is a color, check that color matches turn
         assert!(
@@ -490,13 +522,80 @@ impl Board {
         );
         assert_eq!((get_piece_color!(move_to_make.piece) == WHITE), self.turn);
 
+        self.hash ^= match get_piece_type!(move_to_make.piece) {
+            PAWN => {
+                if self.turn {
+                    self.hash_keys.white_pawn[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_pawn[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            BISHOP => {
+                if self.turn {
+                    self.hash_keys.white_bishop[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_bishop[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            KNIGHT => {
+                if self.turn {
+                    self.hash_keys.white_knight[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_knight[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            ROOK => {
+                if self.turn {
+                    self.hash_keys.white_rook[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_rook[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            QUEEN => {
+                if self.turn {
+                    self.hash_keys.white_queen[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_queen[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            KING => {
+                if self.turn {
+                    self.hash_keys.white_king[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                } else {
+                    self.hash_keys.black_king[move_to_make.from.0 as usize]
+                        [move_to_make.from.1 as usize]
+                }
+            }
+            _ => panic!("invalid piece type! :skull:"),
+        };
+
         //set en passant square
         if get_piece_type!(move_to_make.piece) == PAWN
             && ((self.turn && move_to_make.from.0 - move_to_make.to.0 == 2)
                 | (!self.turn && move_to_make.to.0 - move_to_make.from.0 == 2))
         {
             self.en_passant_square = Some((if self.turn { 5 } else { 2 }, move_to_make.to.1));
+
+            self.hash ^= self.hash_keys.en_passant_square_file[move_to_make.to.1 as usize]
         } else {
+            match self.en_passant_square {
+                Some(square) => {
+                    self.hash ^= self.hash_keys.en_passant_square_file[square.1 as usize]
+                }
+                None => {}
+            }
+
             self.en_passant_square = None;
         }
 
@@ -504,8 +603,115 @@ impl Board {
         if move_to_make.en_passant {
             if self.turn {
                 self.board[move_to_make.to.0 as usize + 1][move_to_make.to.1 as usize] = 0;
+                self.hash ^= self.hash_keys.white_pawn[move_to_make.to.0 as usize]
+                    [move_to_make.to.1 as usize];
             } else {
                 self.board[move_to_make.to.0 as usize - 1][move_to_make.to.1 as usize] = 0;
+                self.hash ^= self.hash_keys.black_pawn[move_to_make.to.0 as usize]
+                    [move_to_make.to.1 as usize];
+            }
+
+            self.hash ^= match get_piece_type!(move_to_make.capture_piece.unwrap()) {
+                PAWN => {
+                    if !self.turn {
+                        self.hash_keys.white_pawn[move_to_make.from.0 as usize - 1]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_pawn[move_to_make.from.0 as usize + 1]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                BISHOP => {
+                    if !self.turn {
+                        self.hash_keys.white_bishop[move_to_make.from.0 as usize - 1]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_bishop[move_to_make.from.0 as usize + 1]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                KNIGHT => {
+                    if !self.turn {
+                        self.hash_keys.white_knight[move_to_make.from.0 as usize - 1]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_knight[move_to_make.from.0 as usize + 1]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                ROOK => {
+                    if !self.turn {
+                        self.hash_keys.white_rook[move_to_make.from.0 as usize - 1]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_rook[move_to_make.from.0 as usize + 1]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                QUEEN => {
+                    if !self.turn {
+                        self.hash_keys.white_queen[move_to_make.from.0 as usize - 1]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_queen[move_to_make.from.0 as usize + 1]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                _ => panic!("invalid piece type! :skull:"),
+            }
+        } else {
+            match move_to_make.capture_piece {
+                Some(piece) => {
+                    self.hash ^= match get_piece_type!(piece) {
+                        PAWN => {
+                            if !self.turn {
+                                self.hash_keys.white_pawn[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            } else {
+                                self.hash_keys.black_pawn[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            }
+                        }
+                        BISHOP => {
+                            if !self.turn {
+                                self.hash_keys.white_bishop[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            } else {
+                                self.hash_keys.black_bishop[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            }
+                        }
+                        KNIGHT => {
+                            if !self.turn {
+                                self.hash_keys.white_knight[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            } else {
+                                self.hash_keys.black_knight[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            }
+                        }
+                        ROOK => {
+                            if !self.turn {
+                                self.hash_keys.white_rook[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            } else {
+                                self.hash_keys.black_rook[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            }
+                        }
+                        QUEEN => {
+                            if !self.turn {
+                                self.hash_keys.white_queen[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            } else {
+                                self.hash_keys.black_queen[move_to_make.from.0 as usize]
+                                    [move_to_make.from.1 as usize]
+                            }
+                        }
+                        _ => panic!("invalid piece type! :skull:"),
+                    }
+                }
+                None => {}
             }
         }
 
@@ -516,6 +722,109 @@ impl Board {
                 None => self.board[move_to_make.from.0 as usize][move_to_make.from.1 as usize],
             };
         self.board[move_to_make.from.0 as usize][move_to_make.from.1 as usize] = 0;
+
+        match move_to_make.promotion_piece {
+            Some(piece) => {
+                self.hash ^= match get_piece_type!(piece) {
+                    BISHOP => {
+                        if self.turn {
+                            self.hash_keys.white_bishop[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_bishop[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    KNIGHT => {
+                        if self.turn {
+                            self.hash_keys.white_knight[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_knight[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    ROOK => {
+                        if self.turn {
+                            self.hash_keys.white_rook[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_rook[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    QUEEN => {
+                        if self.turn {
+                            self.hash_keys.white_queen[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_queen[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    _ => panic!("invalid piece type! :skull:"),
+                }
+            }
+            None => {
+                self.hash ^= match get_piece_type!(move_to_make.piece) {
+                    PAWN => {
+                        if self.turn {
+                            self.hash_keys.white_pawn[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_pawn[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    BISHOP => {
+                        if self.turn {
+                            self.hash_keys.white_bishop[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_bishop[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    KNIGHT => {
+                        if self.turn {
+                            self.hash_keys.white_knight[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_knight[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    ROOK => {
+                        if self.turn {
+                            self.hash_keys.white_rook[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_rook[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    QUEEN => {
+                        if self.turn {
+                            self.hash_keys.white_queen[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_queen[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    KING => {
+                        if self.turn {
+                            self.hash_keys.white_king[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        } else {
+                            self.hash_keys.black_king[move_to_make.to.0 as usize]
+                                [move_to_make.to.1 as usize]
+                        }
+                    }
+                    _ => panic!("invalid piece type! :skull:"),
+                }
+            }
+        }
 
         // castling
         if get_piece_type!(move_to_make.piece) == KING {
@@ -540,28 +849,72 @@ impl Board {
                 self.board[0][0] = 0;
             }
 
+            if self.turn {
+                if is_white_kingside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.white_ks;
+                }
+                if is_white_queenside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.white_qs;
+                }
+            } else {
+                if is_black_kingside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.black_ks;
+                }
+                if is_black_queenside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.black_qs;
+                }
+            }
+
             // if king is moved, cannot castle
             self.castle_state &= if self.turn { 0b0011 } else { 0b1100 };
         } else if get_piece_type!(move_to_make.piece) == ROOK {
             // if rook is moved, that side can no longer castle
             if move_to_make.from == (0, 0) {
+                if is_black_queenside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.black_qs;
+                }
+
                 self.castle_state &= !BLACK_QUEENSIDE;
             } else if move_to_make.from == (0, 7) {
+                if is_black_kingside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.black_ks;
+                }
+
                 self.castle_state &= !BLACK_KINGSIDE;
             } else if move_to_make.from == (7, 0) {
+                if is_white_queenside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.white_qs;
+                }
+
                 self.castle_state &= !WHITE_QUEENSIDE;
             } else if move_to_make.from == (7, 7) {
+                if is_white_kingside!(self.castle_state) {
+                    self.hash ^= self.hash_keys.white_ks;
+                }
+
                 self.castle_state &= !WHITE_KINGSIDE;
             }
         }
         // if rook is captured, can no longer castle
         if move_to_make.to == (0, 0) {
+            if is_black_queenside!(self.castle_state) {
+                self.hash ^= self.hash_keys.black_qs;
+            }
             self.castle_state &= !BLACK_QUEENSIDE;
         } else if move_to_make.to == (0, 7) {
+            if is_black_kingside!(self.castle_state) {
+                self.hash ^= self.hash_keys.black_ks;
+            }
             self.castle_state &= !BLACK_KINGSIDE;
         } else if move_to_make.to == (7, 0) {
+            if is_white_queenside!(self.castle_state) {
+                self.hash ^= self.hash_keys.white_qs;
+            }
             self.castle_state &= !WHITE_QUEENSIDE;
         } else if move_to_make.to == (7, 7) {
+            if is_white_kingside!(self.castle_state) {
+                self.hash ^= self.hash_keys.white_ks;
+            }
             self.castle_state &= !WHITE_KINGSIDE;
         }
 
@@ -571,6 +924,7 @@ impl Board {
             self.fullmoves += 1
         }
         self.turn = !self.turn;
+        self.hash ^= self.hash_keys.turn_key;
 
         move |board: &mut Board| {
             board.board = prev_board;
@@ -582,6 +936,7 @@ impl Board {
             board.fullmoves = prev_fullmoves;
             board.white_king_position = prev_white_king_position;
             board.black_king_position = prev_black_king_position;
+            board.hash = prev_hash;
         }
     }
 }
@@ -689,6 +1044,8 @@ impl Display for Board {
                 } else {
                     ""
                 };
+
+                board_str += &format!(" hash: {:064b}", self.hash);
             }
 
             board_str += "\n";
@@ -736,6 +1093,8 @@ impl BoardBuilder {
                 ray_attacks: [[[0; 8]; 8]; 8],
                 white_king_position: (0, 0),
                 black_king_position: (0, 0),
+                hash_keys: HashKeys::new(),
+                hash: 0,
             },
         }
     }
@@ -888,6 +1247,8 @@ impl BoardBuilder {
         }
 
         self.board.fullmoves = tokens[5].parse().expect("could not parse fullmoves");
+
+        self.board.hash_keys.clone().generate_hash(&mut self.board);
 
         self
     }
