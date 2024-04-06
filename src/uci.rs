@@ -1,11 +1,12 @@
-use std::{io, process::exit, time::{Instant, Duration}};
+use std::{
+    io,
+    process::exit,
+    time::{Duration, Instant},
+};
 
 use rustchess2::game::{BoardBuilder, Move, STARTPOS};
 
-use crate::engine::{
-    search::{MAX, MIN},
-    Engine, PvNode,
-};
+use crate::engine::Engine;
 
 pub struct UciEngine {
     pub engine: Engine,
@@ -41,8 +42,6 @@ impl UciEngine {
         // ill fully implement later
         if command.contains("startpos") {
             builder.set_position(STARTPOS.to_owned());
-        } else if command.contains("fen") {
-            builder.set_position(command.split(" ").nth(2).unwrap().to_owned());
         }
         self.engine.board = builder.build();
 
@@ -62,6 +61,25 @@ impl UciEngine {
                 }
             }
         }
+
+        let mut i = 0;
+        for tok in command.split(" ") {
+            if tok == "fen" {
+                self.engine.board = BoardBuilder::new()
+                    .set_position(format!(
+                        "{} {} {} {} {} {}",
+                        command.split(" ").nth(i + 1).unwrap(),
+                        command.split(" ").nth(i + 2).unwrap(),
+                        command.split(" ").nth(i + 3).unwrap(),
+                        command.split(" ").nth(i + 4).unwrap(),
+                        command.split(" ").nth(i + 5).unwrap(),
+                        command.split(" ").nth(i + 6).unwrap(),
+                    ))
+                    .build();
+            }
+
+            i += 1;
+        }
     }
 
     fn go_command(&mut self, command: &String) {
@@ -72,6 +90,7 @@ impl UciEngine {
 
         let mut btime: Option<i32> = None;
         let mut wtime: Option<i32> = None;
+        let mut search_depth = 6;
         for i in 0..tokens.len() {
             if tokens[i] == "btime" {
                 btime = Some(tokens[i + 1].parse().expect("failed to parse"));
@@ -80,9 +99,13 @@ impl UciEngine {
             if tokens[i] == "wtime" {
                 wtime = Some(tokens[i + 1].parse().expect("failed to parse"));
             }
+
+            if tokens[i] == "depth" {
+                search_depth = tokens[i + 1].parse().expect("failed to parse");
+            }
         }
 
-        if let Some(b) = btime {
+        let best_move = if let Some(b) = btime {
             if let Some(w) = wtime {
                 let curr_time = Instant::now();
                 let alloted_time = if self.engine.board.turn {
@@ -91,15 +114,26 @@ impl UciEngine {
                     Duration::from_millis(b.try_into().unwrap()) / 40
                 };
 
-                self.engine.iterative_deepening_search(20, true, curr_time, alloted_time);
+                self.engine
+                    .iterative_deepening_search(100, true, curr_time, alloted_time)
             } else {
-                self.engine.iterative_deepening_search(6, false, Instant::now(), Duration::from_secs(0));
+                self.engine.iterative_deepening_search(
+                    6,
+                    false,
+                    Instant::now(),
+                    Duration::from_secs(0),
+                )
             }
         } else {
-            self.engine.iterative_deepening_search(6, false, Instant::now(), Duration::from_secs(0));
-        } 
+            self.engine.iterative_deepening_search(
+                search_depth,
+                false,
+                Instant::now(),
+                Duration::from_secs(0),
+            )
+        };
 
-        println!("bestmove {}", self.engine.best_move.unwrap().to_uci());
+        println!("bestmove {}", best_move.unwrap().to_uci());
         self.engine.transposition_table.clear();
     }
 }

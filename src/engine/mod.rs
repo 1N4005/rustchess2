@@ -5,6 +5,7 @@ use rustchess2::game::{Board, Move};
 pub mod eval;
 pub mod search;
 
+#[derive(Debug)]
 pub enum TTEntryFlag {
     Exact,
     LowerBound,
@@ -27,6 +28,7 @@ impl PvNode {
     }
 }
 
+#[derive(Debug)]
 pub struct TTEntry {
     pub eval: i32,
     pub depth: u8,
@@ -39,6 +41,7 @@ pub struct Engine {
     pub best_move: Option<Move>,
     pub board: Board,
     pub transposition_table: HashMap<u64, TTEntry>,
+    pub nodes_searched: u64,
 }
 
 impl Engine {
@@ -47,6 +50,7 @@ impl Engine {
             best_move: None,
             board,
             transposition_table: HashMap::new(),
+            nodes_searched: 0,
         }
     }
 }

@@ -1,4 +1,7 @@
-use std::{cmp::{max, min}, time::{Instant, Duration}};
+use std::{
+    cmp::{max, min},
+    time::{Duration, Instant},
+};
 
 use rustchess2::{
     game::{Move, BLACK, WHITE},
@@ -16,34 +19,82 @@ pub const MAX: i32 = 100_000_000;
 pub const CHECKMATE: i32 = -10_000_000;
 
 impl Engine {
-    pub fn iterative_deepening_search(&mut self, depth: u8, time_limit: bool, start_time: Instant, alloted_time: Duration) {
+    pub fn iterative_deepening_search(
+        &mut self,
+        depth: u8,
+        time_limit: bool,
+        start_time: Instant,
+        alloted_time: Duration,
+    ) -> Option<Move> {
         let mut search_depth = 1;
+        let mut best = None;
 
         while search_depth <= depth {
-            let mut result = self.negamax(search_depth, 0, MIN, MAX, PvNode::new(None), time_limit, start_time, alloted_time);
+            self.nodes_searched = 0;
+            let start = Instant::now();
+            let mut result = self.negamax(
+                search_depth,
+                0,
+                MIN,
+                MAX,
+                PvNode::new(None),
+                time_limit,
+                start_time,
+                alloted_time,
+            );
+            let end = Instant::now();
+            let dur = end - start;
             let eval = result.0;
-            print!("info depth {} score cp {} pv", search_depth, eval);
-            while match result.1.next {
-                Some(ref pvn) => {
-                    print!(" {}", pvn.best_move.expect("uh oh").to_uci());
-                    true
-                }
-                None => false,
-            } {
-                result.1 = *result.1.next.unwrap()
-            }
-            println!();
 
             if eval > 1000000 {
-                return;
+                print!(
+                    "info depth {} score mate {} time {} nodes {} nps {} pv",
+                    search_depth,
+                    -CHECKMATE - eval,
+                    dur.as_millis(),
+                    self.nodes_searched,
+                    (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
+                );
+                while match result.1.next {
+                    Some(ref pvn) => {
+                        print!(" {}", pvn.best_move.expect("uh oh").to_uci());
+                        true
+                    }
+                    None => false,
+                } {
+                    result.1 = *result.1.next.unwrap()
+                }
+                println!();
+                return Some(self.best_move?);
             }
 
             if time_limit && Instant::now() - start_time > alloted_time {
-                return;
+                return best;
+            } else {
+                best = self.best_move;
+                print!(
+                    "info depth {} score cp {} time {} nodes {} nps {} pv",
+                    search_depth,
+                    eval,
+                    dur.as_millis(),
+                    self.nodes_searched,
+                    (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
+                );
+                while match result.1.next {
+                    Some(ref pvn) => {
+                        print!(" {}", pvn.best_move.expect("uh oh").to_uci());
+                        true
+                    }
+                    None => false,
+                } {
+                    result.1 = *result.1.next.unwrap()
+                }
+                println!();
             }
-
             search_depth += 1;
         }
+
+        best
     }
 
     pub fn negamax(
@@ -55,8 +106,10 @@ impl Engine {
         mut pv: PvNode,
         time_limit: bool,
         start_time: Instant,
-        alloted_time: Duration
+        alloted_time: Duration,
     ) -> (i32, PvNode) {
+        self.nodes_searched += 1;
+
         if time_limit && Instant::now() - start_time > alloted_time {
             return (0, pv);
         }
@@ -87,6 +140,12 @@ impl Engine {
                         return (entry.eval, pv);
                     }
 
+                    if let Some(_) = entry.best_move {
+                        hash_move = entry.best_move;
+                    }
+                }
+
+                if depth_from_root == 0 {
                     if let Some(_) = entry.best_move {
                         hash_move = entry.best_move;
                     }
@@ -141,12 +200,12 @@ impl Engine {
                 PvNode::new(Some(m)),
                 time_limit,
                 start_time,
-                alloted_time
+                alloted_time,
             );
             value = max(value, -eval.0);
             undo(&mut self.board);
             // print!("{}result of move move: {}, value: {} in hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), value, self.board.hash);
-            
+
             if time_limit && Instant::now() - start_time > alloted_time {
                 return (0, pv);
             }
@@ -180,9 +239,13 @@ impl Engine {
                 } else {
                     Exact
                 },
-                best_move: match pv.next {
-                    Some(ref bpv) => (*bpv).best_move,
-                    None => None,
+                best_move: if depth_from_root == 0 {
+                    self.best_move
+                } else {
+                    match pv.next {
+                        Some(ref bpv) => (*bpv).best_move,
+                        None => None,
+                    }
                 },
             },
         );

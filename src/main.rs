@@ -4,13 +4,8 @@ mod uci;
 
 use std::{io, time::Duration};
 
-use engine::{
-    search::{MAX, MIN},
-    Engine,
-};
+use engine::Engine;
 use rustchess2::game::{Board, BoardBuilder, Move, BLACK, WHITE};
-
-use crate::engine::PvNode;
 
 macro_rules! measure {
     ($code: block) => {{
@@ -79,13 +74,15 @@ fn cli() {
         //     engine.best_move.unwrap().to_uci(),
         //     engine.best_move.unwrap().to_san(&mut engine.board).unwrap()
         // );
+        let best: Option<Move>;
         measure!({
-            engine.iterative_deepening_search(16, false, Instant::now(), Duration::from_secs(0));
+            best =
+                engine.iterative_deepening_search(6, false, Instant::now(), Duration::from_secs(0));
         });
         println!(
             "Move: {} / {}",
-            engine.best_move.unwrap().to_uci(),
-            engine.best_move.unwrap().to_san(&mut engine.board).unwrap()
+            best.unwrap().to_uci(),
+            best.unwrap().to_san(&mut engine.board).unwrap()
         );
 
         // let mut pv = result.1;
