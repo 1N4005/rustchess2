@@ -1,5 +1,6 @@
 use std::{
     cmp::{max, min},
+    sync::mpsc::{Receiver, TryRecvError},
     time::{Duration, Instant},
 };
 
@@ -25,14 +26,15 @@ impl Engine {
         time_limit: bool,
         start_time: Instant,
         alloted_time: Duration,
+        rx: Option<Receiver<bool>>,
     ) -> Option<Move> {
         let mut search_depth = 1;
-        let mut best = None;
 
         while search_depth <= depth {
             self.nodes_searched = 0;
+            self.highest_depth = 0;
             let start = Instant::now();
-            let mut result = self.negamax(
+            let result = self.negamax(
                 search_depth,
                 0,
                 MIN,
@@ -41,6 +43,7 @@ impl Engine {
                 time_limit,
                 start_time,
                 alloted_time,
+                &rx,
             );
             let end = Instant::now();
             let dur = end - start;
@@ -48,53 +51,60 @@ impl Engine {
 
             if eval > 1000000 {
                 print!(
-                    "info depth {} score mate {} time {} nodes {} nps {} pv",
+                    "info depth {} seldepth {} score mate {} time {} nodes {} nps {} pv",
                     search_depth,
+                    self.highest_depth,
                     -CHECKMATE - eval,
                     dur.as_millis(),
                     self.nodes_searched,
                     (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
                 );
-                while match result.1.next {
-                    Some(ref pvn) => {
-                        print!(" {}", pvn.best_move.expect("uh oh").to_uci());
-                        true
-                    }
-                    None => false,
-                } {
-                    result.1 = *result.1.next.unwrap()
+                for m in self.find_pv(search_depth - 1) {
+                    print!(" {}", m.to_uci());
                 }
                 println!();
                 return Some(self.best_move?);
             }
 
-            if time_limit && Instant::now() - start_time > alloted_time {
-                return best;
-            } else {
-                best = self.best_move;
-                print!(
-                    "info depth {} score cp {} time {} nodes {} nps {} pv",
+            print!(
+                    "info depth {} seldepth {} score cp {} time {} nodes {} nps {} pv",
                     search_depth,
+                    self.highest_depth,
                     eval,
                     dur.as_millis(),
                     self.nodes_searched,
                     (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
                 );
-                while match result.1.next {
-                    Some(ref pvn) => {
-                        print!(" {}", pvn.best_move.expect("uh oh").to_uci());
-                        true
-                    }
-                    None => false,
-                } {
-                    result.1 = *result.1.next.unwrap()
+                for m in self.find_pv(search_depth - 1) {
+                    print!(" {}", m.to_uci());
                 }
                 println!();
+
+            if self.canceled {
+                return self.best_move;
             }
+
+            if let Some(ref rcv) = rx {
+                match rcv.try_recv() {
+                    Ok(canceled) => {
+                        if canceled {
+                            self.canceled = true;
+                            return self.best_move;
+                        }
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => panic!("disconnected"),
+                }
+            }
+
+            if time_limit && Instant::now() - start_time > alloted_time {
+                return self.best_move;
+            }
+
             search_depth += 1;
         }
 
-        best
+        self.best_move
     }
 
     pub fn negamax(
@@ -107,11 +117,39 @@ impl Engine {
         time_limit: bool,
         start_time: Instant,
         alloted_time: Duration,
+        rx: &Option<Receiver<bool>>,
     ) -> (i32, PvNode) {
         self.nodes_searched += 1;
 
+        // seldepth (this isnt quite correct but this method is easy)
+        self.highest_depth = max(self.highest_depth, depth_from_root);
+
+        // draw by repetition
+        if self.repetition_table.len() > 0
+            && self.repetition_table[0..self.repetition_table.len() - 1].contains(&self.board.hash)
+        {
+            return (0, pv);
+        }
+
         if time_limit && Instant::now() - start_time > alloted_time {
             return (0, pv);
+        }
+
+        if self.canceled {
+            return (0, pv);
+        }
+
+        if let Some(rcv) = rx {
+            match rcv.try_recv() {
+                Ok(canceled) => {
+                    if canceled {
+                        self.canceled = true;
+                        return (0, pv);
+                    }
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => panic!("disconnected"),
+            }
         }
 
         if depth_from_root > 0 {
@@ -192,8 +230,22 @@ impl Engine {
         for m in moves {
             // println!("{}making move: {} in position with hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), self.board.hash);
             let undo = self.board.make_move(m);
+            self.repetition_table.push(self.board.hash);
+
+            //determine search extensions
+            let mut extensions = 0;
+            if if self.board.turn { //check extension (if move is a check, extend search depth by 1)
+                self.board
+                    .is_in_check(WHITE, self.board.white_king_position)
+            } else {
+                self.board
+                    .is_in_check(BLACK, self.board.black_king_position)
+            } {
+                extensions += 1;
+            }
+
             let eval = self.negamax(
-                depth - 1,
+                depth - 1 + extensions,
                 depth_from_root + 1,
                 -beta,
                 -alpha,
@@ -201,13 +253,32 @@ impl Engine {
                 time_limit,
                 start_time,
                 alloted_time,
+                rx,
             );
-            value = max(value, -eval.0);
+            self.repetition_table.pop();
             undo(&mut self.board);
+            value = max(value, -eval.0);
             // print!("{}result of move move: {}, value: {} in hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), value, self.board.hash);
 
             if time_limit && Instant::now() - start_time > alloted_time {
                 return (0, pv);
+            }
+
+            if self.canceled {
+                return (0, pv);
+            }
+
+            if let Some(rcv) = rx {
+                match rcv.try_recv() {
+                    Ok(canceled) => {
+                        if canceled {
+                            self.canceled = true;
+                            return (0, pv);
+                        }
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => panic!("disconnected"),
+                }
             }
 
             if value > alpha {

@@ -41,7 +41,10 @@ pub struct Engine {
     pub best_move: Option<Move>,
     pub board: Board,
     pub transposition_table: HashMap<u64, TTEntry>,
+    pub repetition_table: Vec<u64>,
     pub nodes_searched: u64,
+    pub canceled: bool,
+    pub highest_depth: u8,
 }
 
 impl Engine {
@@ -50,7 +53,36 @@ impl Engine {
             best_move: None,
             board,
             transposition_table: HashMap::new(),
+            repetition_table: Vec::new(),
             nodes_searched: 0,
+            canceled: false,
+            highest_depth: 0,
         }
+    }
+
+    // extracts pv from TT
+    pub fn find_pv(&self, len: u8) -> Vec<Move> {
+        let mut moves_board = self.board.clone();
+        let mut pv = Vec::new();
+
+        loop {
+            if pv.len() >= len.into() {
+                break;
+            }
+
+            match self.transposition_table.get(&moves_board.hash) {
+                Some(entry) => {
+                    if let Some(m) = entry.best_move {
+                        pv.push(m);
+                        let _ = moves_board.make_move(m);
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+
+        pv
     }
 }

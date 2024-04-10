@@ -2,7 +2,7 @@ mod engine;
 mod tests;
 mod uci;
 
-use std::{io, time::Duration};
+use std::{error::Error, io, time::Duration};
 
 use engine::Engine;
 use rustchess2::game::{Board, BoardBuilder, Move, BLACK, WHITE};
@@ -23,17 +23,19 @@ macro_rules! measure {
     }};
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut input: String = String::new();
     io::stdin()
         .read_line(&mut input)
         .expect("Engine couldn't read from stdin");
 
     match &*input.trim() {
-        "uci" => uci::UciEngine::uci(),
+        "uci" => uci::UciEngine::uci()?,
         "cli" => cli(),
         _ => println!("{} is not supported.", input),
     }
+
+    Ok(())
 }
 
 fn cli() {
@@ -76,8 +78,13 @@ fn cli() {
         // );
         let best: Option<Move>;
         measure!({
-            best =
-                engine.iterative_deepening_search(6, false, Instant::now(), Duration::from_secs(0));
+            best = engine.iterative_deepening_search(
+                6,
+                false,
+                Instant::now(),
+                Duration::from_secs(0),
+                None,
+            );
         });
         println!(
             "Move: {} / {}",

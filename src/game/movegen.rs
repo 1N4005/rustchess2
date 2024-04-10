@@ -53,7 +53,7 @@ const NORTHWEST: u8 = 7;
 
 impl Board {
     pub fn generate_legal_moves(&mut self) -> Vec<Move> {
-        let mut moves = Vec::new();
+        let mut moves = Vec::with_capacity(218);
 
         let mut current_square: (u8, u8) = (0, 0);
         let mut king_position: (u8, u8) = (0, 0);
@@ -113,6 +113,7 @@ impl Board {
             undo(self);
             !in_check
         });
+        moves.shrink_to_fit();
 
         moves
     }
