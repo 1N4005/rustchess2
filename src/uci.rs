@@ -25,7 +25,7 @@ impl UciEngine {
     pub fn uci() -> Result<(), Box<dyn Error>> {
         println!("id name {}\nid author {}", NAME, AUTHOR);
         // "fearless concurrency" lmao
-        let uciengine: Arc<Mutex<UciEngine>> = Arc::new(Mutex::new(UciEngine {
+        let mut uciengine: Arc<Mutex<UciEngine>> = Arc::new(Mutex::new(UciEngine {
             engine: Engine::new(BoardBuilder::new().build()),
         }));
         let mut prev_input: Option<String> = None;
@@ -48,7 +48,11 @@ impl UciEngine {
 
             match &*input.split(" ").nth(0).unwrap() {
                 "isready" => println!("readyok"),
-                "ucinewgame" => {}
+                "ucinewgame" => {
+                    uciengine = Arc::new(Mutex::new(UciEngine {
+                        engine: Engine::new(BoardBuilder::new().build()),
+                    }))
+                }
                 "position" => uciengine.lock().unwrap().position_command(&input),
                 "go" => {
                     thread::spawn(move || {

@@ -227,7 +227,7 @@ impl Engine {
         // println!();
 
         let mut value = MIN;
-        for m in moves {
+        for (pos, m) in moves.into_iter().enumerate() {
             // println!("{}making move: {} in position with hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), self.board.hash);
             let undo = self.board.make_move(m);
             self.repetition_table.push(self.board.hash);
@@ -245,17 +245,42 @@ impl Engine {
                 extensions += 1;
             }
 
-            let eval = self.negamax(
-                depth - 1 + extensions,
-                depth_from_root + 1,
-                -beta,
-                -alpha,
-                PvNode::new(Some(m)),
-                time_limit,
-                start_time,
-                alloted_time,
-                rx,
-            );
+            let mut eval = (MIN, PvNode::new(None));
+            let mut full_search = true;
+
+            // late move reductions
+            if depth > 3 && extensions == 0 && pos > 3 {
+                if let None = m.capture_piece {
+                    const REDUCTION: u8 = 1;
+                    eval = self.negamax(
+                        depth - 1 - REDUCTION,
+                        depth_from_root + 1,
+                        -beta,
+                        -alpha,
+                        PvNode::new(Some(m)),
+                        time_limit,
+                        start_time,
+                        alloted_time,
+                        rx,
+                    );
+
+                    full_search = eval.0 > alpha;
+                }
+            }
+
+            if full_search {
+                eval = self.negamax(
+                    depth - 1 + extensions,
+                    depth_from_root + 1,
+                    -beta,
+                    -alpha,
+                    PvNode::new(Some(m)),
+                    time_limit,
+                    start_time,
+                    alloted_time,
+                    rx,
+                );
+            }
             self.repetition_table.pop();
             undo(&mut self.board);
             value = max(value, -eval.0);
