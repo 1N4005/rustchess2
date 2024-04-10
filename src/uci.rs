@@ -100,6 +100,8 @@ impl UciEngine {
             i += 1;
         }
 
+        self.engine.repetition_table.clear();
+
         if command.contains("moves") {
             let mut found = false;
             for tok in command.split(" ") {

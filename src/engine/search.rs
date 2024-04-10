@@ -67,18 +67,18 @@ impl Engine {
             }
 
             print!(
-                    "info depth {} seldepth {} score cp {} time {} nodes {} nps {} pv",
-                    search_depth,
-                    self.highest_depth,
-                    eval,
-                    dur.as_millis(),
-                    self.nodes_searched,
-                    (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
-                );
-                for m in self.find_pv(search_depth - 1) {
-                    print!(" {}", m.to_uci());
-                }
-                println!();
+                "info depth {} seldepth {} score cp {} time {} nodes {} nps {} pv",
+                search_depth,
+                self.highest_depth,
+                eval,
+                dur.as_millis(),
+                self.nodes_searched,
+                (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
+            );
+            for m in self.find_pv(search_depth - 1) {
+                print!(" {}", m.to_uci());
+            }
+            println!();
 
             if self.canceled {
                 return self.best_move;
@@ -234,7 +234,8 @@ impl Engine {
 
             //determine search extensions
             let mut extensions = 0;
-            if if self.board.turn { //check extension (if move is a check, extend search depth by 1)
+            if if self.board.turn {
+                //check extension (if move is a check, extend search depth by 1)
                 self.board
                     .is_in_check(WHITE, self.board.white_king_position)
             } else {
@@ -358,6 +359,7 @@ impl Engine {
 
     pub fn order_moves(&self, moves: &mut Vec<Move>, hash_move: Option<Move>) {
         moves.sort_by_key(|a| {
+            // search hash move first
             if let Some(m) = hash_move {
                 if m == *a {
                     return 100000;
