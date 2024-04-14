@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    fmt::Display,
     io,
     process::exit,
     sync::{
@@ -10,7 +11,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rustchess2::game::{BoardBuilder, Move, STARTPOS};
+use rustchess2::{
+    game::{BoardBuilder, Move, BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, STARTPOS, WHITE},
+    get_piece_color, get_piece_type,
+};
 
 use crate::engine::Engine;
 
@@ -72,6 +76,7 @@ impl UciEngine {
                     "Static evaluation: {}",
                     uciengine.lock().unwrap().engine.evaluate()
                 ),
+                "d" => println!("{}", uciengine.lock().unwrap()),
                 _ => {}
             }
         }
@@ -191,5 +196,57 @@ impl UciEngine {
 
         println!("bestmove {}", best_move.unwrap().to_uci());
         self.engine.transposition_table.clear();
+    }
+}
+
+impl Display for UciEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "+---+---+---+---+---+---+---+---+")?;
+        for (index, rank) in self.engine.board.board.into_iter().enumerate() {
+            write!(f, "|")?;
+            for square in rank {
+                write!(
+                    f,
+                    " {} |",
+                    match get_piece_type!(square) {
+                        PAWN => match get_piece_color!(square) {
+                            WHITE => "P",
+                            BLACK => "p",
+                            _ => "",
+                        },
+                        BISHOP => match get_piece_color!(square) {
+                            WHITE => "B",
+                            BLACK => "b",
+                            _ => "",
+                        },
+                        KNIGHT => match get_piece_color!(square) {
+                            WHITE => "N",
+                            BLACK => "n",
+                            _ => "",
+                        },
+                        ROOK => match get_piece_color!(square) {
+                            WHITE => "R",
+                            BLACK => "r",
+                            _ => "",
+                        },
+                        QUEEN => match get_piece_color!(square) {
+                            WHITE => "Q",
+                            BLACK => "q",
+                            _ => "",
+                        },
+                        KING => match get_piece_color!(square) {
+                            WHITE => "K",
+                            BLACK => "k",
+                            _ => "",
+                        },
+                        _ => " ",
+                    }
+                )?;
+            }
+            writeln!(f, " {}\n+---+---+---+---+---+---+---+---+", 8 - index)?;
+        }
+        writeln!(f, "  a   b   c   d   e   f   g   h")?;
+
+        Ok(())
     }
 }

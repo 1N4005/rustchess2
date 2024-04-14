@@ -5,7 +5,9 @@ mod uci;
 use std::{error::Error, io, time::Duration};
 
 use engine::Engine;
-use rustchess2::game::{Board, BoardBuilder, Move, BLACK, WHITE};
+use rustchess2::game::{square_from_uci, Board, BoardBuilder, Move, BLACK, WHITE};
+
+use crate::engine::eval::pawn_blocker_mask;
 
 macro_rules! measure {
     ($code: block) => {{
@@ -42,8 +44,8 @@ fn cli() {
     // for debugging stuff
     let board: Board = BoardBuilder::new()
         //.set_position(rustchess2::game::STARTPOS.to_owned())
-        // .set_position(rustchess2::game::KIWIPETE.to_owned())
-        .set_position("8/8/8/8/8/1k1K4/2R5/8 w - - 0 1".to_owned())
+        .set_position(rustchess2::game::KIWIPETE.to_owned())
+        //.set_position("8/8/8/8/8/1k1K4/2R5/8 w - - 0 1".to_owned())
         // .set_position("8/8/8/8/2R5/1k1K4/8/8 b - - 1 1".to_owned())
         // .set_position("8/8/8/8/2R5/3K4/1k6/8 w - - 2 2".to_owned())
         .build();
@@ -80,9 +82,9 @@ fn cli() {
         measure!({
             best = engine.iterative_deepening_search(
                 6,
-                false,
+                true,
                 Instant::now(),
-                Duration::from_secs(0),
+                Duration::from_secs(1),
                 None,
             );
         });
@@ -91,6 +93,11 @@ fn cli() {
             best.unwrap().to_uci(),
             best.unwrap().to_san(&mut engine.board).unwrap()
         );
+        println!("{:#066b}", pawn_blocker_mask(square_from_uci("e4"), WHITE));
+        println!("{:#066b}", pawn_blocker_mask(square_from_uci("e4"), BLACK));
+        measure!({
+            println!("Static Eval: {}", engine.evaluate());
+        });
 
         // let mut pv = result.1;
         // while match pv.next {

@@ -10,6 +10,3 @@ rand = "0.8.5"
 
 [profile.release]
 lto = "fat"
-
-[build]
-rustflags = ["-C", "target-cpu=native"]

@@ -220,15 +220,8 @@ impl Engine {
 
         self.order_moves(&mut moves, hash_move);
 
-        // print!("{}", "\t".repeat(depth_from_root as usize));
-        // for m in &moves {
-        //     print!("{} ", m.to_uci());
-        // }
-        // println!();
-
         let mut value = MIN;
         for (pos, m) in moves.into_iter().enumerate() {
-            // println!("{}making move: {} in position with hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), self.board.hash);
             let undo = self.board.make_move(m);
             self.repetition_table.push(self.board.hash);
 
@@ -284,14 +277,13 @@ impl Engine {
             self.repetition_table.pop();
             undo(&mut self.board);
             value = max(value, -eval.0);
-            // print!("{}result of move move: {}, value: {} in hash: {}", "\t".repeat(depth_from_root as usize), m.to_uci(), value, self.board.hash);
 
             if time_limit && Instant::now() - start_time > alloted_time {
-                return (0, pv);
+                return (value, pv);
             }
 
             if self.canceled {
-                return (0, pv);
+                return (value, pv);
             }
 
             if let Some(rcv) = rx {
@@ -299,7 +291,7 @@ impl Engine {
                     Ok(canceled) => {
                         if canceled {
                             self.canceled = true;
-                            return (0, pv);
+                            return (value, pv);
                         }
                     }
                     Err(TryRecvError::Empty) => {}
@@ -308,7 +300,6 @@ impl Engine {
             }
 
             if value > alpha {
-                // print!(" NEW ALPHA: {}", value);
                 alpha = value;
                 pv.next = Some(Box::new(eval.1));
 
@@ -318,10 +309,8 @@ impl Engine {
             }
 
             if alpha >= beta {
-                // println!(" ALPHA({}) > BETA({}):", alpha, beta);
                 break;
             }
-            // println!();
         }
 
         self.transposition_table.insert(
