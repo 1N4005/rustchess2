@@ -9,6 +9,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "engine"
+version = "0.1.0"
+dependencies = [
+ "game",
+ "movegen",
+]
+
+[[package]]
+name = "game"
+version = "0.1.0"
+dependencies = [
+ "rand",
+]
+
+[[package]]
+name = "genmagics"
+version = "0.1.0"
+dependencies = [
+ "game",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24,6 +46,14 @@ name = "libc"
 version = "0.2.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
+
+[[package]]
+name = "movegen"
+version = "0.1.0"
+dependencies = [
+ "game",
+ "genmagics",
+]
 
 [[package]]
 name = "ppv-lite86"
@@ -65,7 +95,9 @@ dependencies = [
 name = "rustchess2"
 version = "0.1.0"
 dependencies = [
- "rand",
+ "engine",
+ "game",
+ "movegen",
 ]
 
 [[package]]

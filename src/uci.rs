@@ -11,12 +11,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rustchess2::{
-    game::{BoardBuilder, Move, BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, STARTPOS, WHITE},
-    get_piece_color, get_piece_type,
+use game::{
+    get_piece_color, get_piece_type, BoardBuilder, Move, BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN,
+    ROOK, STARTPOS, WHITE,
 };
 
-use crate::engine::Engine;
+use engine::Engine;
 
 const NAME: &'static str = "ThinnGopher";
 const AUTHOR: &'static str = "1ngopher";
@@ -161,6 +161,15 @@ impl UciEngine {
 
             if tokens[i] == "infinite" {
                 search_depth = 100; //lmao
+            }
+
+            if tokens[i] == "perft" {
+                movegen::perft::perft(
+                    &mut self.engine.board,
+                    tokens[i + 1].parse::<u8>().expect("failed to parse"),
+                    0,
+                );
+                return;
             }
         }
 
