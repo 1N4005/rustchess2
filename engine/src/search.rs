@@ -24,17 +24,17 @@ impl Engine {
         alloted_time: Duration,
         rx: Option<Receiver<bool>>,
     ) -> Option<Move> {
-        let mut search_depth = 2;
+        let mut search_depth = 1;
         let mut alpha = MIN;
         let mut beta = MAX;
         let mut prev_eval = None;
-        let window = 40;
+        let window = 25;
 
         while search_depth <= depth {
+            let start = Instant::now();
             self.nodes_searched = 0;
             self.highest_depth = 0;
-            let start = Instant::now();
-            
+
             if let Some(eval) = prev_eval {
                 alpha = eval - window;
                 beta = eval + window;
@@ -55,12 +55,21 @@ impl Engine {
             let mut dur = end - start;
             let mut eval = result.0;
 
-            if eval <= alpha || eval >= beta {
+            let mut delta = 20;
+            loop {
+                if eval <= alpha {
+                    alpha -= delta;
+                } else if eval >= beta {
+                    beta += delta;
+                } else {
+                    break;
+                }
+
                 result = self.negamax(
                     search_depth,
                     0,
-                    MIN,
-                    MAX,
+                    alpha,
+                    beta,
                     PvNode::new(None),
                     time_limit,
                     start_time,
@@ -70,6 +79,8 @@ impl Engine {
                 let end = Instant::now();
                 dur = end - start;
                 eval = result.0;
+
+                delta += delta / 3
             }
 
             prev_eval = Some(eval);
@@ -221,7 +232,7 @@ impl Engine {
             return (self.quiet_search(alpha, beta, depth_from_root + 1), pv);
         }
 
-        let mut moves = movegen::generate_legal_moves(&mut self.board);
+        let mut moves = movegen::generate_legal_moves(&mut self.board, false);
 
         if moves.len() == 0 {
             if self.board.turn {
@@ -262,7 +273,7 @@ impl Engine {
             if depth > 2 && extensions == 0 {
                 if let None = m.capture_piece {
                     if pos > 2 {
-                        let reduction = if pos > 5 { depth / 3 } else { 1 };
+                        let reduction = 1;
 
                         eval = self.negamax(
                             depth - 1 - reduction,
@@ -356,17 +367,17 @@ impl Engine {
             },
         );
 
-        return (alpha, pv);
+        return (value, pv);
     }
 
     pub fn quiet_search(&mut self, mut alpha: i32, beta: i32, depth_from_root: u8) -> i32 {
         let eval = self.evaluate();
-        if eval > beta {
-            return beta;
+        if eval >= beta {
+            return eval;
         }
         alpha = max(alpha, eval);
 
-        let mut captures = movegen::generate_legal_captures(&mut self.board);
+        let mut captures = movegen::generate_legal_moves(&mut self.board, true);
 
         if captures.len() == 0 {
             return self.evaluate();

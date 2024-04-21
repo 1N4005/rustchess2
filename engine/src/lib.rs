@@ -5,13 +5,6 @@ use game::{Board, Move};
 pub mod eval;
 pub mod search;
 
-#[derive(Debug)]
-pub enum TTEntryFlag {
-    Exact,
-    LowerBound,
-    UpperBound,
-}
-
 pub struct PvNode {
     pub next: Option<Box<PvNode>>,
     pub best_move: Option<Move>,
@@ -26,6 +19,13 @@ impl PvNode {
             eval: 0,
         }
     }
+}
+
+#[derive(Debug)]
+pub enum TTEntryFlag {
+    Exact,
+    LowerBound,
+    UpperBound,
 }
 
 #[derive(Debug)]

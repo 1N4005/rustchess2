@@ -253,4 +253,72 @@ impl Board {
             }
         }
     }
+
+    pub fn generate_obstructed(&mut self) {
+        for from in 0..64 {
+            for to in 0..64 {
+                let from_square = (7 - (from / 8), 7 - (from % 8));
+                let to_square = (7 - (to / 8), 7 - (to % 8));
+
+                if from != to
+                    && (from_square.0 + from_square.1 == to_square.0 + to_square.1
+                        || from_square.0 - from_square.1 == to_square.0 - to_square.1)
+                {
+                    // same diagonal
+                    let mut rank = from_square.0;
+                    let mut file = from_square.1;
+
+                    let deltas = (
+                        (to_square.0 - from_square.0) / i32::abs(to_square.0 - from_square.0),
+                        (to_square.1 - from_square.1) / i32::abs(to_square.1 - from_square.1),
+                    );
+
+                    loop {
+                        rank += deltas.0;
+                        file += deltas.1;
+
+                        if rank == to_square.0 && file == to_square.1 {
+                            break;
+                        }
+
+                        self.obstructed[from as usize][to as usize] |=
+                            1 << get_bit_index!(rank, file);
+                    }
+                }
+
+                if from != to && (from_square.0 == to_square.0 || from_square.1 == to_square.1) {
+                    // same row or column
+                    let mut rank = from_square.0;
+                    let mut file = from_square.1;
+
+                    let deltas = (
+                        (to_square.0 - from_square.0)
+                            / i32::abs(if to_square.0 - from_square.0 == 0 {
+                                1
+                            } else {
+                                to_square.0 - from_square.0
+                            }),
+                        (to_square.1 - from_square.1)
+                            / i32::abs(if to_square.1 - from_square.1 == 0 {
+                                1
+                            } else {
+                                to_square.1 - from_square.1
+                            }),
+                    );
+
+                    loop {
+                        rank += deltas.0;
+                        file += deltas.1;
+
+                        if rank == to_square.0 && file == to_square.1 {
+                            break;
+                        }
+
+                        self.obstructed[from as usize][to as usize] |=
+                            1 << get_bit_index!(rank, file);
+                    }
+                }
+            }
+        }
+    }
 }

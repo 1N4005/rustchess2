@@ -305,6 +305,8 @@ pub struct Board {
     // precomputed bishop and rook blocker masks (magic bitboards)
     pub bishop_blocker_masks: [[u64; 8]; 8],
     pub rook_blocker_masks: [[u64; 8]; 8],
+    // obstructed[from][to] gives bitboard of the squares inbetween the two
+    pub obstructed: [[u64; 64]; 64],
 
     pub white_king_position: (u8, u8),
     pub black_king_position: (u8, u8),
@@ -711,7 +713,7 @@ impl Board {
                                     [move_to_make.from.1 as usize]
                             }
                         }
-                        _ => panic!("invalid piece type! :skull:"),
+                        _ => panic!("invalid piece type! :skull:\n{:?}\n{}", move_to_make, self),
                     }
                 }
                 None => {}
@@ -1098,6 +1100,7 @@ impl BoardBuilder {
                 rook_blocker_masks: [[0; 8]; 8],
                 white_king_position: (0, 0),
                 black_king_position: (0, 0),
+                obstructed: [[0; 64]; 64],
                 hash_keys: HashKeys::new(),
                 hash: 0,
             },
@@ -1264,6 +1267,7 @@ impl BoardBuilder {
         self.board.generate_ray_attacks();
         self.board.generate_rook_blocker_masks();
         self.board.generate_bishop_blocker_masks();
+        self.board.generate_obstructed();
 
         self.board
     }

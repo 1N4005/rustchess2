@@ -24,7 +24,7 @@ pub fn to_san(m: &Move, board: &mut Board) -> Result<String, String> {
     // for moves such as Rexe4 vs Raxe4
     let mut possible_origins: Vec<Move> = Vec::new();
 
-    for m in super::generate_legal_moves(board) {
+    for m in super::generate_legal_moves(board, false) {
         if m.to == m.to && m.piece == m.piece {
             possible_origins.push(m);
         }
@@ -57,7 +57,7 @@ pub fn to_san(m: &Move, board: &mut Board) -> Result<String, String> {
             board.black_king_position
         },
     ) {
-        s += if super::generate_legal_moves(board).len() == 0 {
+        s += if super::generate_legal_moves(board, false).len() == 0 {
             "#"
         } else {
             "+"

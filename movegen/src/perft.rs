@@ -1,7 +1,7 @@
 use super::Board;
 
 pub fn perft(board: &mut Board, depth: u8, depth_from_root: u8) -> u128 {
-    let legal_moves = super::generate_legal_moves(board);
+    let legal_moves = super::generate_legal_moves(board, false);
     if depth == 1 {
         for m in &legal_moves {
             if depth_from_root == 0 {
