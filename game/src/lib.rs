@@ -180,7 +180,16 @@ impl Move {
             to,
             board.board[from.0 as usize][from.1 as usize],
             match board.board[to.0 as usize][to.1 as usize] {
-                0 => None,
+                0 => match board.en_passant_square {
+                    Some(sq) => {
+                        if to == sq {
+                            Some(if board.turn { WHITE } else { BLACK } | PAWN)
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                },
                 piece => Some(piece),
             },
             match promotion {

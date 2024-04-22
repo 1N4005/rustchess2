@@ -161,7 +161,8 @@ impl Engine {
         self.highest_depth = max(self.highest_depth, depth_from_root);
 
         // draw by repetition
-        if self.repetition_table.len() > 0
+        if depth_from_root > 0
+            && self.repetition_table.len() > 0
             && self.repetition_table[0..self.repetition_table.len() - 1].contains(&self.board.hash)
         {
             return (0, pv);

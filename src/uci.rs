@@ -256,6 +256,16 @@ impl Display for UciEngine {
         }
         writeln!(f, "  a   b   c   d   e   f   g   h")?;
 
+        writeln!(
+            f,
+            "\n {} to move.",
+            if self.engine.board.turn {
+                "White"
+            } else {
+                "Black"
+            }
+        )?;
+
         Ok(())
     }
 }

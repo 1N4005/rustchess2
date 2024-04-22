@@ -1,7 +1,7 @@
 mod tests;
 mod uci;
 
-use std::{error::Error, io};
+use std::{error::Error, io, time::Duration};
 
 use engine::Engine;
 use game::print_bitboard;
@@ -66,35 +66,24 @@ fn cli() {
     println!();
     loop {
         println!("{}", engine.board);
-        //       let moves: Vec<Move>;
-        //       measure!({
-        //           moves = movegen::generate_legal_moves(&mut engine.board, false);
-        //       });
-        //       for m in &moves {
-        //           print!("{} ", movegen::san::to_san(m, &mut engine.board).unwrap());
-        //       }
-        //       println!("\nLength: {}", moves.len());
-        //       if moves.len() == 0 {
-        //           break;
-        //       }
         let best: Option<Move>;
-        //        measure!({
-        //            best = engine.iterative_deepening_search(
-        //                6,
-        //                true,
-        //                Instant::now(),
-        //                Duration::from_secs(1),
-        //                None,
-        //            );
-        //        });
-        //        println!(
-        //            "Move: {} / {}",
-        //            best.unwrap().to_uci(),
-        //            movegen::san::to_san(&best.unwrap(), &mut engine.board).unwrap()
-        //        );
-        //        measure!({
-        //            println!("Static Eval: {}", engine.evaluate());
-        //        });
+        measure!({
+            best = engine.iterative_deepening_search(
+                6,
+                true,
+                Instant::now(),
+                Duration::from_secs(1),
+                None,
+            );
+        });
+        println!(
+            "Move: {} / {}",
+            best.unwrap().to_uci(),
+            movegen::san::to_san(&best.unwrap(), &mut engine.board).unwrap()
+        );
+        measure!({
+            println!("Static Eval: {}", engine.evaluate());
+        });
 
         let mut input: String = String::new();
         io::stdin()

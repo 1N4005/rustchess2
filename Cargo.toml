@@ -12,4 +12,6 @@ engine = {path = "./engine"}
 movegen = {path = "./movegen"}
 
 [profile.release]
-lto = "fat"
+lto = true
+codegen-units = 1
+panic = "abort"

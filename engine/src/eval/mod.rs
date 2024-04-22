@@ -91,8 +91,9 @@ impl Engine {
         let phase = self.phase(material);
         let eval = ((midgame_eval * (256 - phase)) + (endgame_eval * phase)) / 256;
         let perspective = if self.board.turn { 1 } else { -1 };
+        let tempo = 50; // bonus for right to move, helps avoid score oscillations
 
-        eval * perspective
+        eval * perspective + tempo
     }
 
     fn midgame_eval(&self, material: i32) -> i32 {

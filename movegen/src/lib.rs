@@ -4,7 +4,7 @@ pub mod san;
 
 use game::{
     get_bit_index, get_piece_color, get_piece_type, is_black_kingside, is_black_queenside,
-    is_white_kingside, is_white_queenside, print_bitboard,
+    is_white_kingside, is_white_queenside,
 };
 
 use game::{
@@ -125,9 +125,7 @@ pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move>
         generate_pawn_captures(board, &mut moves, allowed_targets, !pinned);
     }
 
-    moves.retain(|&m| {
-        !captures_only || (captures_only && m.capture_piece != None)
-    });
+    moves.retain(|&m| !captures_only || (captures_only && m.capture_piece != None));
     moves.shrink_to_fit();
 
     moves
@@ -222,7 +220,7 @@ pub fn generate_pinned_moves(
         } else if pinned_pawns > 0 {
             // pawns cannot be pushed or promoted when pinned diagonally, but can capture the
             // pinning piece
-        
+
             generate_pawn_captures(board, moves, (1 << pinner) & allowed_targets, pinned_pawns);
         }
 
@@ -519,17 +517,9 @@ fn generate_king_moves(
         }
     };
 
-    let our_prev_bitboards = if board.turn {
-        board.white
-    } else {
-        board.black
-    };
-    
-    let our_color = if board.turn {
-    WHITE
-} else {
-    BLACK
-};
+    let our_prev_bitboards = if board.turn { board.white } else { board.black };
+
+    let our_color = if board.turn { WHITE } else { BLACK };
 
     let our_king_position = if board.turn {
         get_bit_index!(board.white_king_position)
@@ -708,7 +698,12 @@ fn generate_pawn_pushes(
     }
 }
 
-fn generate_pawn_captures(board: &mut Board, moves: &mut Vec<Move>, allowed_targets: u64, nonpinned: u64) {
+fn generate_pawn_captures(
+    board: &mut Board,
+    moves: &mut Vec<Move>,
+    allowed_targets: u64,
+    nonpinned: u64,
+) {
     if board.turn {
         for i in 8u8..48 {
             if (1 << i) & nonpinned == 0 {
@@ -727,7 +722,8 @@ fn generate_pawn_captures(board: &mut Board, moves: &mut Vec<Move>, allowed_targ
                     if (7 - i % 8 > 0 && (6 - i / 8, 6 - i % 8) == square
                         || 7 - i % 8 < 7 && (6 - i / 8, 8 - i % 8) == square)
                         && (1 << get_bit_index!(square)) & allowed_targets > 0
-                    {   // make sure that there are no sneaky checks making the capture illegal
+                    {
+                        // make sure that there are no sneaky checks making the capture illegal
                         // en passant should be rare enough that this doesnt impact performance
 
                         let m = Move::new(
@@ -738,9 +734,9 @@ fn generate_pawn_captures(board: &mut Board, moves: &mut Vec<Move>, allowed_targ
                             None,
                             true,
                         );
-                        
+
                         let undo = board.make_move(m);
-                        
+
                         if !is_in_check(board, WHITE, board.white_king_position) {
                             moves.push(m);
                         }
@@ -754,7 +750,7 @@ fn generate_pawn_captures(board: &mut Board, moves: &mut Vec<Move>, allowed_targ
             // capturing to the right
             targets |= ((current_pawn & NOT_A_FILE) << 7) & !board.white.all & board.black.all;
             // capturing to the left
-            targets |= ((current_pawn & NOT_H_FILE) << 9) & !board.white.all & board.black.all; 
+            targets |= ((current_pawn & NOT_H_FILE) << 9) & !board.white.all & board.black.all;
 
             generate_moves_from_targets(
                 board,
@@ -791,9 +787,9 @@ fn generate_pawn_captures(board: &mut Board, moves: &mut Vec<Move>, allowed_targ
                             None,
                             true,
                         );
-                        
+
                         let undo = board.make_move(m);
-                        
+
                         if !is_in_check(board, BLACK, board.black_king_position) {
                             moves.push(m);
                         }
