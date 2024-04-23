@@ -13,12 +13,12 @@ use super::Engine;
 
 mod piecetables;
 
-const PAWN_VALUE: i32 = 100;
-const BISHOP_VALUE: i32 = 320;
-const KNIGHT_VALUE: i32 = 300;
-const ROOK_VALUE: i32 = 500;
-const QUEEN_VALUE: i32 = 900;
-const KING_VALUE: i32 = 20000;
+pub const PAWN_VALUE: i32 = 100;
+pub const BISHOP_VALUE: i32 = 320;
+pub const KNIGHT_VALUE: i32 = 300;
+pub const ROOK_VALUE: i32 = 500;
+pub const QUEEN_VALUE: i32 = 900;
+pub const KING_VALUE: i32 = 20000;
 
 // used to determine if in the endgame
 const ENDGAME_PIECE_COUNT: u32 = 15;

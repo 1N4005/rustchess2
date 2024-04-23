@@ -1,9 +1,11 @@
-use game::{get_piece_type, Move, BLACK, WHITE};
+use game::{get_piece_type, Move, BISHOP, BLACK, KNIGHT, PAWN, QUEEN, ROOK, WHITE};
 use std::{
     cmp::{max, min},
     sync::mpsc::{Receiver, TryRecvError},
     time::{Duration, Instant},
 };
+
+use crate::eval::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE};
 
 use super::{
     Engine, PvNode, TTEntry,
@@ -249,6 +251,17 @@ impl Engine {
             return (0, pv);
         }
 
+        let in_check = if self.board.turn {
+            movegen::is_in_check(&self.board, WHITE, self.board.white_king_position)
+        } else {
+            movegen::is_in_check(&self.board, BLACK, self.board.black_king_position)
+        };
+        
+        // reverse futility pruning
+        if !in_check && depth <= 8 && self.evaluate() >= beta + 120 * depth as i32 {
+            return (beta, pv);
+        }
+
         self.order_moves(&mut moves, hash_move);
 
         let mut value = MIN;
@@ -274,7 +287,7 @@ impl Engine {
             if depth > 2 && extensions == 0 {
                 if let None = m.capture_piece {
                     if pos > 2 {
-                        let reduction = 1;
+                        let reduction = if pos > 5 { depth / 3 } else { 1 };
 
                         eval = self.negamax(
                             depth - 1 - reduction,
@@ -376,6 +389,7 @@ impl Engine {
         if eval >= beta {
             return eval;
         }
+
         alpha = max(alpha, eval);
 
         let mut captures = movegen::generate_legal_moves(&mut self.board, true);
@@ -387,6 +401,21 @@ impl Engine {
         self.order_moves(&mut captures, None);
 
         for m in captures {
+            // https://www.chessprogramming.org/Delta_Pruning
+            let margin = 200;
+            let delta = match get_piece_type!(m.capture_piece.unwrap()) {
+                PAWN => PAWN_VALUE,
+                BISHOP => BISHOP_VALUE,
+                KNIGHT => KNIGHT_VALUE,
+                ROOK => ROOK_VALUE,
+                QUEEN => QUEEN_VALUE,
+                _ => panic!("wrong piece type!"),
+            };
+
+            if eval + delta + margin < alpha {
+                continue;
+            }
+
             let undo = self.board.make_move(m);
 
             let eval = -self.quiet_search(-beta, -alpha, depth_from_root + 1);
@@ -408,7 +437,7 @@ impl Engine {
             // search hash move first
             if let Some(m) = hash_move {
                 if m == *a {
-                    return 100000;
+                    return 10000000;
                 }
             }
 
