@@ -124,8 +124,10 @@ pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move>
         }
         generate_pawn_captures(board, &mut moves, allowed_targets, !pinned);
     }
-
-    moves.retain(|&m| !captures_only || (captures_only && m.capture_piece != None));
+    
+    if captures_only {
+        moves.retain(|&m| m.capture_piece != None);
+    }
     moves.shrink_to_fit();
 
     moves
@@ -443,22 +445,24 @@ fn generate_moves_from_targets(
     moves: &mut Vec<Move>,
     current_square: (u8, u8),
     piece: Piece,
-    targets: u64,
+    mut targets: u64,
 ) {
-    for i in 0u8..64 {
-        if targets & (1 << i) > 0 {
-            moves.push(Move::new(
-                current_square,
-                (7 - i / 8, 7 - i % 8),
-                piece,
-                match board.board[7 - i as usize / 8][7 - i as usize % 8] {
-                    0 => None,
-                    piece => Some(piece),
-                },
-                None,
-                false,
-            ));
-        }
+    while targets != 0 {
+        let target = targets.trailing_zeros();
+
+        moves.push(Move::new(
+            current_square,
+            (7 - target as u8 / 8, 7 - target as u8 % 8),
+            piece,
+            match board.board[7 - target as usize / 8][7 - target as usize % 8] {
+                0 => None,
+                piece => Some(piece),
+            },
+            None,
+            false,
+        ));
+
+        targets ^= 1 << target;
     }
 }
 

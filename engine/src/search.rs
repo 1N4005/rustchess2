@@ -1,4 +1,5 @@
 use game::{get_piece_type, Move, BISHOP, BLACK, KNIGHT, PAWN, QUEEN, ROOK, WHITE};
+use movegen::is_in_check;
 use std::{
     cmp::{max, min},
     sync::mpsc::{Receiver, TryRecvError},
@@ -235,27 +236,21 @@ impl Engine {
             return (self.quiet_search(alpha, beta, depth_from_root + 1), pv);
         }
 
-        let mut moves = movegen::generate_legal_moves(&mut self.board, false);
-
-        if moves.len() == 0 {
-            if self.board.turn {
-                if movegen::is_in_check(&self.board, WHITE, self.board.white_king_position) {
-                    return (CHECKMATE + depth_from_root as i32, pv);
-                }
-            } else {
-                if movegen::is_in_check(&self.board, BLACK, self.board.black_king_position) {
-                    return (CHECKMATE + depth_from_root as i32, pv);
-                }
-            }
-
-            return (0, pv);
-        }
-
         let in_check = if self.board.turn {
             movegen::is_in_check(&self.board, WHITE, self.board.white_king_position)
         } else {
             movegen::is_in_check(&self.board, BLACK, self.board.black_king_position)
         };
+
+        let mut moves = movegen::generate_legal_moves(&mut self.board, false);
+
+        if moves.len() == 0 {
+            if in_check {
+                return (CHECKMATE + depth_from_root as i32, pv);
+            }
+
+            return (0, pv);
+        }
         
         // reverse futility pruning
         if !in_check && depth <= 8 && self.evaluate() >= beta + 120 * depth as i32 {
@@ -400,7 +395,7 @@ impl Engine {
 
         self.order_moves(&mut captures, None);
 
-        for m in captures {
+        for m in &captures {
             // https://www.chessprogramming.org/Delta_Pruning
             let margin = 200;
             let delta = match get_piece_type!(m.capture_piece.unwrap()) {
@@ -409,14 +404,16 @@ impl Engine {
                 KNIGHT => KNIGHT_VALUE,
                 ROOK => ROOK_VALUE,
                 QUEEN => QUEEN_VALUE,
-                _ => panic!("wrong piece type!"),
+                _ => {
+                    panic!("{}\nwrong piece type!\n{}", self.board, m.to_uci());
+                }
             };
 
             if eval + delta + margin < alpha {
                 continue;
             }
 
-            let undo = self.board.make_move(m);
+            let undo = self.board.make_move(*m);
 
             let eval = -self.quiet_search(-beta, -alpha, depth_from_root + 1);
 
@@ -437,19 +434,18 @@ impl Engine {
             // search hash move first
             if let Some(m) = hash_move {
                 if m == *a {
-                    return 10000000;
+                    return -10000000;
                 }
             }
 
             match a.capture_piece {
                 Some(piece) => {
-                    Engine::get_piece_value(get_piece_type!(piece))
-                        - Engine::get_piece_value(get_piece_type!(a.piece))
+                    Engine::get_piece_value(get_piece_type!(a.piece))
+                     - Engine::get_piece_value(get_piece_type!(piece))
+                    // order is opposite because sort_by_key sorts in ascending order
                 }
                 None => 0,
             }
         });
-
-        moves.reverse();
     }
 }

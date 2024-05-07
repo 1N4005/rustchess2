@@ -1066,6 +1066,11 @@ impl Display for Board {
             rank_index += 1;
         }
         board_str += " 01234567\n";
+        board_str += if self.turn {
+            "White to move"
+        } else {
+            "Black to move"
+        };
 
         f.write_str(&board_str)
     }
