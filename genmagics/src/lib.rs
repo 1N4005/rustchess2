@@ -129,7 +129,7 @@ pub fn find_magic(
     let shift = 64 - index_bits;
 
     loop {
-        let magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
+        let magic = rand::random() & rand::random() & rand::random();
         let entry = MagicEntry {
             magic,
             shift,
@@ -225,8 +225,8 @@ pub fn write_magics_to_file(filename: String) {
         shift: 0,
         offset: 0,
     }; 8]; 8];
-    let mut rook_table_size = 0usize;
-    let mut bishop_table_size = 0usize;
+    let mut _rook_table_size = 0usize;
+    let mut _bishop_table_size = 0usize;
     let board = BoardBuilder::new().build();
 
     for rank in 0u8..8 {
@@ -237,7 +237,7 @@ pub fn write_magics_to_file(filename: String) {
                 rook_moves[rank as usize][file as usize],
                 rook_magics[rank as usize][file as usize],
             ) = find_magic(&board, SlidingPieces::Rook, (rank, file), index_bits);
-            rook_table_size += rook_moves[rank as usize][file as usize].len();
+            _rook_table_size += rook_moves[rank as usize][file as usize].len();
         }
     }
 
@@ -249,14 +249,13 @@ pub fn write_magics_to_file(filename: String) {
                 bishop_moves[rank as usize][file as usize],
                 bishop_magics[rank as usize][file as usize],
             ) = find_magic(&board, SlidingPieces::Bishop, (rank, file), index_bits);
-            bishop_table_size += bishop_moves[rank as usize][file as usize].len();
+            _bishop_table_size += bishop_moves[rank as usize][file as usize].len();
         }
     }
 
     // write flattened version of rook and bishop moves
     let mut current_offset = 0u32;
-    let _ =
-        out_file.write(format!("pub const ROOK_MOVES: [u64; {}] = [", rook_table_size).as_bytes());
+    let _ = out_file.write(b"pub const ROOK_MOVES: &[u64] = &[");
     for rank in 0..8usize {
         for file in 0..8usize {
             rook_magics[rank][file].offset = current_offset;
@@ -267,13 +266,7 @@ pub fn write_magics_to_file(filename: String) {
         }
     }
     current_offset = 0;
-    let _ = out_file.write(
-        format!(
-            "];\npub const BISHOP_MOVES: [u64; {}] = [",
-            bishop_table_size
-        )
-        .as_bytes(),
-    );
+    let _ = out_file.write(b"];\npub const BISHOP_MOVES: &[u64] = &[");
     for rank in 0..8usize {
         for file in 0..8usize {
             bishop_magics[rank][file].offset = current_offset;

@@ -97,9 +97,7 @@ impl Engine {
     }
 
     fn midgame_eval(&self, material: i32) -> i32 {
-        let eval = material;
-
-        eval
+        material
     }
 
     fn endgame_eval(&self, material: i32) -> i32 {
@@ -108,17 +106,10 @@ impl Engine {
         for rank in 0..8 {
             for (file, square) in self.board.board[rank].into_iter().enumerate() {
                 if get_piece_type!(square) == PAWN {
-                    if get_piece_color!(square) == WHITE {
-                        eval += self.endgame_pawn_value_adjustment(
-                            (rank as u8, file as u8),
-                            get_piece_color!(square),
-                        )
-                    } else if get_piece_color!(square) == BLACK {
-                        eval += self.endgame_pawn_value_adjustment(
-                            (rank as u8, file as u8),
-                            get_piece_color!(square),
-                        )
-                    }
+                    eval += self.endgame_pawn_value_adjustment(
+                        (rank as u8, file as u8),
+                        get_piece_color!(square),
+                    )
                 }
             }
         }
@@ -184,17 +175,15 @@ impl Engine {
                         panic!("wrong piece color!")
                     };
             }
-        } else {
-            if our_pawns & opponent_blockers == 0 {
-                adjustment -= 45
-                    + 4 * if color == WHITE {
-                        7 - square.1 as i32
-                    } else if color == BLACK {
-                        square.1 as i32
-                    } else {
-                        panic!("wrong piece color!")
-                    };
-            }
+        } else if our_pawns & opponent_blockers == 0 {
+            adjustment -= 45
+                + 4 * if color == WHITE {
+                    7 - square.1 as i32
+                } else if color == BLACK {
+                    square.1 as i32
+                } else {
+                    panic!("wrong piece color!")
+                };
         }
 
         adjustment

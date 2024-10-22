@@ -124,9 +124,9 @@ pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move>
         }
         generate_pawn_captures(board, &mut moves, allowed_targets, !pinned);
     }
-    
+
     if captures_only {
-        moves.retain(|&m| m.capture_piece != None);
+        moves.retain(|&m| m.capture_piece.is_some());
     }
     moves.shrink_to_fit();
 
@@ -268,9 +268,7 @@ pub fn count_attackers(board: &Board, color: u8, square: (u8, u8)) -> (u8, u64) 
         }
     }
 
-    let pawn_attacks = if color == WHITE && square.0 > 0 {
-        west | east
-    } else if color == BLACK && square.0 < 7 {
+    let pawn_attacks = if (color == WHITE && square.0 > 0) || (color == BLACK && square.0 < 7) {
         west | east
     } else {
         0
@@ -377,30 +375,29 @@ pub fn is_in_check(board: &Board, color: u8, king_position: (u8, u8)) -> bool {
         }
     }
 
-    let pawn_attacks = if color == WHITE && king_position.0 > 0 {
-        west | east
-    } else if color == BLACK && king_position.0 < 7 {
-        west | east
-    } else {
-        0
-    };
+    let pawn_attacks =
+        if (color == WHITE && king_position.0 > 0) || (color == BLACK && king_position.0 < 7) {
+            west | east
+        } else {
+            0
+        };
 
     if color == WHITE {
-        return diagonal_attacks & board.black.bishops > 0
+        diagonal_attacks & board.black.bishops > 0
             || diagonal_attacks & board.black.queens > 0
             || orthogonal_attacks & board.black.rooks > 0
             || orthogonal_attacks & board.black.queens > 0
             || knight_attacks & board.black.knights > 0
             || pawn_attacks & board.black.pawns > 0
-            || king_attacks & board.black.king > 0;
+            || king_attacks & board.black.king > 0
     } else if color == BLACK {
-        return diagonal_attacks & board.white.bishops > 0
+        diagonal_attacks & board.white.bishops > 0
             || diagonal_attacks & board.white.queens > 0
             || orthogonal_attacks & board.white.rooks > 0
             || orthogonal_attacks & board.white.queens > 0
             || knight_attacks & board.white.knights > 0
             || pawn_attacks & board.white.pawns > 0
-            || king_attacks & board.white.king > 0;
+            || king_attacks & board.white.king > 0
     } else {
         false
     }
@@ -482,12 +479,10 @@ fn generate_knight_moves(
         } else {
             board.white.all
         }
-    } else {
-        if board.turn {
+    } else if board.turn {
             !board.white.all
         } else {
             !board.black.all
-        }
     };
 
     generate_moves_from_targets(
@@ -513,12 +508,10 @@ fn generate_king_moves(
         } else {
             board.white.all
         }
-    } else {
-        if board.turn {
+    } else  if board.turn {
             !board.white.all
         } else {
             !board.black.all
-        }
     };
 
     let our_prev_bitboards = if board.turn { board.white } else { board.black };
@@ -721,35 +714,32 @@ fn generate_pawn_captures(
             }
 
             let mut targets = 0;
-            match board.en_passant_square {
-                Some(square) => {
-                    if (7 - i % 8 > 0 && (6 - i / 8, 6 - i % 8) == square
-                        || 7 - i % 8 < 7 && (6 - i / 8, 8 - i % 8) == square)
-                        && (1 << get_bit_index!(square)) & allowed_targets > 0
-                    {
-                        // make sure that there are no sneaky checks making the capture illegal
-                        // en passant should be rare enough that this doesnt impact performance
+            if let Some(square) = board.en_passant_square {
+                if (7 - i % 8 > 0 && (6 - i / 8, 6 - i % 8) == square
+                    || 7 - i % 8 < 7 && (6 - i / 8, 8 - i % 8) == square)
+                    && (1 << get_bit_index!(square)) & allowed_targets > 0
+                {
+                    // make sure that there are no sneaky checks making the capture illegal
+                    // en passant should be rare enough that this doesnt impact performance
 
-                        let m = Move::new(
-                            (7 - i / 8, 7 - i % 8),
-                            square,
-                            WHITE | PAWN,
-                            Some(BLACK | PAWN),
-                            None,
-                            true,
-                        );
+                    let m = Move::new(
+                        (7 - i / 8, 7 - i % 8),
+                        square,
+                        WHITE | PAWN,
+                        Some(BLACK | PAWN),
+                        None,
+                        true,
+                    );
 
-                        let undo = board.make_move(m);
+                    let undo = board.make_move(m);
 
-                        if !is_in_check(board, WHITE, board.white_king_position) {
-                            moves.push(m);
-                        }
-
-                        undo(board);
+                    if !is_in_check(board, WHITE, board.white_king_position) {
+                        moves.push(m);
                     }
+
+                    undo(board);
                 }
-                None => {}
-            };
+            }
 
             // capturing to the right
             targets |= ((current_pawn & NOT_A_FILE) << 7) & !board.white.all & board.black.all;
@@ -777,31 +767,28 @@ fn generate_pawn_captures(
             }
 
             let mut targets = 0;
-            match board.en_passant_square {
-                Some(square) => {
-                    if (7 - i % 8 > 0 && (8 - i / 8, 6 - i % 8) == square
-                        || 7 - i % 8 < 7 && (8 - i / 8, 8 - i % 8) == square)
-                        && (1 << get_bit_index!(square)) & allowed_targets > 0
-                    {
-                        let m = Move::new(
-                            (7 - i / 8, 7 - i % 8),
-                            square,
-                            BLACK | PAWN,
-                            Some(WHITE | PAWN),
-                            None,
-                            true,
-                        );
+            if let Some(square) = board.en_passant_square {
+                if (7 - i % 8 > 0 && (8 - i / 8, 6 - i % 8) == square
+                    || 7 - i % 8 < 7 && (8 - i / 8, 8 - i % 8) == square)
+                    && (1 << get_bit_index!(square)) & allowed_targets > 0
+                {
+                    let m = Move::new(
+                        (7 - i / 8, 7 - i % 8),
+                        square,
+                        BLACK | PAWN,
+                        Some(WHITE | PAWN),
+                        None,
+                        true,
+                    );
 
-                        let undo = board.make_move(m);
+                    let undo = board.make_move(m);
 
-                        if !is_in_check(board, BLACK, board.black_king_position) {
-                            moves.push(m);
-                        }
-
-                        undo(board);
+                    if !is_in_check(board, BLACK, board.black_king_position) {
+                        moves.push(m);
                     }
+
+                    undo(board);
                 }
-                None => {}
             };
 
             // capturing to the right
@@ -959,12 +946,11 @@ fn generate_bishop_moves(
         } else {
             board.white.all
         }
-    } else {
-        if board.turn {
+    } else if board.turn {
             !board.white.all
         } else {
             !board.black.all
-        }
+        
     };
 
     generate_moves_from_targets(
@@ -996,12 +982,10 @@ fn generate_rook_moves(
         } else {
             board.white.all
         }
-    } else {
-        if board.turn {
+    } else if board.turn {
             !board.white.all
         } else {
             !board.black.all
-        }
     };
 
     generate_moves_from_targets(
@@ -1039,12 +1023,11 @@ fn generate_queen_moves(
         } else {
             board.white.all
         }
-    } else {
-        if board.turn {
+    } else if board.turn {
             !board.white.all
         } else {
             !board.black.all
-        }
+        
     };
 
     generate_moves_from_targets(

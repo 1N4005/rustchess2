@@ -1,6 +1,6 @@
 pub mod genkeys;
 pub mod precomputed;
-pub use rand;
+pub mod rand;
 
 use std::fmt::Display;
 
@@ -394,9 +394,7 @@ impl Board {
             if move_to_make.en_passant {
                 self.black.pawns ^= to_mask >> 8;
                 self.black.all ^= to_mask >> 8;
-            } else {
-                match move_to_make.capture_piece {
-                    Some(piece) => {
+            } else if let Some(piece) =move_to_make.capture_piece {
                         self.black.all ^= to_mask;
                         match get_piece_type!(piece) {
                             PAWN => {
@@ -419,9 +417,7 @@ impl Board {
                             }
                         }
                     }
-                    None => {}
-                }
-            }
+
         } else if color == BLACK {
             self.black.all ^= move_mask;
 
@@ -483,9 +479,7 @@ impl Board {
             if move_to_make.en_passant {
                 self.white.pawns ^= to_mask << 8;
                 self.white.all ^= to_mask << 8;
-            } else {
-                match move_to_make.capture_piece {
-                    Some(piece) => {
+            } else if let Some(piece) = move_to_make.capture_piece {
                         self.white.all ^= to_mask;
                         match get_piece_type!(piece) {
                             PAWN => {
@@ -509,9 +503,6 @@ impl Board {
                             }
                         }
                     }
-                    None => {}
-                }
-            }
         }
     }
 
@@ -603,11 +594,8 @@ impl Board {
 
             self.hash ^= self.hash_keys.en_passant_square_file[move_to_make.to.1 as usize]
         } else {
-            match self.en_passant_square {
-                Some(square) => {
-                    self.hash ^= self.hash_keys.en_passant_square_file[square.1 as usize]
-                }
-                None => {}
+            if let Some(square) = self.en_passant_square {
+                self.hash ^= self.hash_keys.en_passant_square_file[square.1 as usize]
             }
 
             self.en_passant_square = None;
@@ -673,59 +661,54 @@ impl Board {
                 }
                 _ => panic!("invalid piece type! :skull:"),
             }
-        } else {
-            match move_to_make.capture_piece {
-                Some(piece) => {
-                    self.hash ^= match get_piece_type!(piece) {
-                        PAWN => {
-                            if !self.turn {
-                                self.hash_keys.white_pawn[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            } else {
-                                self.hash_keys.black_pawn[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            }
-                        }
-                        BISHOP => {
-                            if !self.turn {
-                                self.hash_keys.white_bishop[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            } else {
-                                self.hash_keys.black_bishop[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            }
-                        }
-                        KNIGHT => {
-                            if !self.turn {
-                                self.hash_keys.white_knight[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            } else {
-                                self.hash_keys.black_knight[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            }
-                        }
-                        ROOK => {
-                            if !self.turn {
-                                self.hash_keys.white_rook[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            } else {
-                                self.hash_keys.black_rook[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            }
-                        }
-                        QUEEN => {
-                            if !self.turn {
-                                self.hash_keys.white_queen[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            } else {
-                                self.hash_keys.black_queen[move_to_make.from.0 as usize]
-                                    [move_to_make.from.1 as usize]
-                            }
-                        }
-                        _ => panic!("invalid piece type! :skull:\n{:?}\n{}", move_to_make, self),
+        } else if let Some(piece) = move_to_make.capture_piece {
+            self.hash ^= match get_piece_type!(piece) {
+                PAWN => {
+                    if !self.turn {
+                        self.hash_keys.white_pawn[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_pawn[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
                     }
                 }
-                None => {}
+                BISHOP => {
+                    if !self.turn {
+                        self.hash_keys.white_bishop[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_bishop[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                KNIGHT => {
+                    if !self.turn {
+                        self.hash_keys.white_knight[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_knight[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                ROOK => {
+                    if !self.turn {
+                        self.hash_keys.white_rook[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_rook[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                QUEEN => {
+                    if !self.turn {
+                        self.hash_keys.white_queen[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    } else {
+                        self.hash_keys.black_queen[move_to_make.from.0 as usize]
+                            [move_to_make.from.1 as usize]
+                    }
+                }
+                _ => panic!("invalid piece type! :skull:\n{:?}\n{}", move_to_make, self),
             }
         }
 
@@ -1172,7 +1155,7 @@ impl BoardBuilder {
         let mut index: usize = 63;
         for row in tokens[0].split('/') {
             for c in row.chars() {
-                if !c.is_digit(10) {
+                if !c.is_ascii_digit() {
                     if c.is_uppercase() {
                         self.board.white.all |= 0b1 << index;
                     } else {

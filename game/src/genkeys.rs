@@ -1,3 +1,4 @@
+use crate::rand;
 use crate::{
     get_piece_color, get_piece_type, is_black_kingside, is_black_queenside, is_white_kingside,
     is_white_queenside,
@@ -134,9 +135,6 @@ impl HashKeys {
             board.hash ^= self.turn_key;
         }
 
-        match board.en_passant_square {
-            Some(square) => board.hash ^= self.en_passant_square_file[square.1 as usize],
-            None => {}
-        }
+        if let Some(square) = board.en_passant_square { board.hash ^= self.en_passant_square_file[square.1 as usize]}
     }
 }

@@ -5,6 +5,7 @@ use game::{Board, Move};
 pub mod eval;
 pub mod search;
 
+#[derive(Debug, Clone)]
 pub struct PvNode {
     pub next: Option<Box<PvNode>>,
     pub best_move: Option<Move>,
@@ -33,7 +34,7 @@ pub struct TTEntry {
     pub eval: i32,
     pub depth: u8,
     pub flag: TTEntryFlag,
-    pub best_move: Option<Move>,
+    pub pv: PvNode,
 }
 
 pub struct Engine {
@@ -58,31 +59,5 @@ impl Engine {
             canceled: false,
             highest_depth: 0,
         }
-    }
-
-    // extracts pv from TT
-    pub fn find_pv(&self, len: u8) -> Vec<Move> {
-        let mut moves_board = self.board.clone();
-        let mut pv = Vec::new();
-
-        loop {
-            if pv.len() >= len.into() {
-                break;
-            }
-
-            match self.transposition_table.get(&moves_board.hash) {
-                Some(entry) => {
-                    if let Some(m) = entry.best_move {
-                        pv.push(m);
-                        let _ = moves_board.make_move(m);
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
-
-        pv
     }
 }

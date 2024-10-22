@@ -1,9 +1,6 @@
 use game::{get_piece_type, Move, BISHOP, BLACK, KNIGHT, PAWN, QUEEN, ROOK, WHITE};
-use movegen::is_in_check;
 use std::{
-    cmp::{max, min},
-    sync::mpsc::{Receiver, TryRecvError},
-    time::{Duration, Instant},
+    cmp::{max, min}, sync::mpsc::{Receiver, TryRecvError}, time::{Duration, Instant}
 };
 
 use crate::eval::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE};
@@ -98,11 +95,18 @@ impl Engine {
                     self.nodes_searched,
                     (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
                 );
-                for m in self.find_pv(search_depth - 1) {
-                    print!(" {}", m.to_uci());
+
+                while let Some(pvn) = result.1.next {
+                    if let Some(m) = pvn.best_move {
+                        print!(" {}", m);
+                    } else {
+                        break;
+                    }
+
+                    result.1 = (*pvn).clone();
                 }
                 println!();
-                return Some(self.best_move?);
+                return self.best_move;
             }
 
             print!(
@@ -114,10 +118,17 @@ impl Engine {
                 self.nodes_searched,
                 (1_000_000.0 * self.nodes_searched as f64 / dur.as_micros() as f64) as u64
             );
-            for m in self.find_pv(search_depth - 1) {
-                print!(" {}", m.to_uci());
-            }
-            println!();
+
+            while let Some(pvn) = result.1.next {
+                    if let Some(m) = pvn.best_move {
+                        print!(" {}", m);
+                    } else {
+                        break;
+                    }
+
+                    result.1 = (*pvn).clone();
+                }
+                println!();
 
             if self.canceled {
                 return self.best_move;
@@ -165,7 +176,7 @@ impl Engine {
 
         // draw by repetition
         if depth_from_root > 0
-            && self.repetition_table.len() > 0
+            && !self.repetition_table.is_empty()
             && self.repetition_table[0..self.repetition_table.len() - 1].contains(&self.board.hash)
         {
             return (0, pv);
@@ -203,33 +214,26 @@ impl Engine {
         let original_alpha = alpha;
 
         let mut hash_move = None;
-        match self.transposition_table.get(&self.board.hash) {
-            Some(entry) => {
-                if entry.depth >= depth {
-                    match entry.flag {
-                        Exact => {
-                            return (entry.eval, pv);
-                        }
-                        LowerBound => alpha = max(alpha, entry.eval),
-                        UpperBound => beta = min(beta, entry.eval),
-                    }
-
-                    if alpha >= beta {
+        if let Some(entry) = self.transposition_table.get(&self.board.hash) {
+            if entry.depth >= depth {
+                match entry.flag {
+                    Exact => {
                         return (entry.eval, pv);
                     }
-
-                    if let Some(_) = entry.best_move {
-                        hash_move = entry.best_move;
-                    }
+                    LowerBound => alpha = max(alpha, entry.eval),
+                    UpperBound => beta = min(beta, entry.eval),
                 }
 
-                if depth_from_root == 0 {
-                    if let Some(_) = entry.best_move {
-                        hash_move = entry.best_move;
-                    }
+                if alpha >= beta {
+                    return (entry.eval, pv);
                 }
+
+                hash_move = entry.pv.best_move;
             }
-            None => {}
+
+            if depth_from_root == 0 {
+                hash_move = entry.pv.best_move;
+            }
         }
 
         if depth == 0 {
@@ -244,14 +248,14 @@ impl Engine {
 
         let mut moves = movegen::generate_legal_moves(&mut self.board, false);
 
-        if moves.len() == 0 {
+        if moves.is_empty() {
             if in_check {
                 return (CHECKMATE + depth_from_root as i32, pv);
             }
 
             return (0, pv);
         }
-        
+
         // reverse futility pruning
         if !in_check && depth <= 8 && self.evaluate() >= beta + 120 * depth as i32 {
             return (beta, pv);
@@ -279,26 +283,22 @@ impl Engine {
             let mut full_search = true;
 
             // late move reductions
-            if depth > 2 && extensions == 0 {
-                if let None = m.capture_piece {
-                    if pos > 2 {
-                        let reduction = if pos > 5 { depth / 3 } else { 1 };
+            if depth > 2 && extensions == 0 && m.capture_piece.is_none() && pos > 2 {
+                let reduction = if pos > 5 { depth / 3 } else { 1 };
 
-                        eval = self.negamax(
-                            depth - 1 - reduction,
-                            depth_from_root + 1,
-                            -beta,
-                            -alpha,
-                            PvNode::new(Some(m)),
-                            time_limit,
-                            start_time,
-                            alloted_time,
-                            rx,
-                        );
+                eval = self.negamax(
+                    depth - 1 - reduction,
+                    depth_from_root + 1,
+                    -beta,
+                    -alpha,
+                    PvNode::new(Some(m)),
+                    time_limit,
+                    start_time,
+                    alloted_time,
+                    rx,
+                );
 
-                        full_search = eval.0 > alpha;
-                    }
-                }
+                full_search = eval.0 > alpha;
             }
 
             if full_search {
@@ -365,21 +365,14 @@ impl Engine {
                 } else {
                     Exact
                 },
-                best_move: if depth_from_root == 0 {
-                    self.best_move
-                } else {
-                    match pv.next {
-                        Some(ref bpv) => (*bpv).best_move,
-                        None => None,
-                    }
-                },
+                pv: pv.clone(),
             },
         );
 
-        return (value, pv);
+        (value, pv)
     }
 
-    pub fn quiet_search(&mut self, mut alpha: i32, beta: i32, depth_from_root: u8) -> i32 {
+    pub fn quiet_search(&mut self, mut alpha: i32, beta: i32, _depth_from_root: u8) -> i32 {
         let eval = self.evaluate();
         if eval >= beta {
             return eval;
@@ -389,8 +382,8 @@ impl Engine {
 
         let mut captures = movegen::generate_legal_moves(&mut self.board, true);
 
-        if captures.len() == 0 {
-            return self.evaluate();
+        if captures.is_empty() {
+            return eval;
         }
 
         self.order_moves(&mut captures, None);
@@ -415,12 +408,12 @@ impl Engine {
 
             let undo = self.board.make_move(*m);
 
-            let eval = -self.quiet_search(-beta, -alpha, depth_from_root + 1);
+            let eval = -self.quiet_search(-beta, -alpha, _depth_from_root + 1);
 
             undo(&mut self.board);
 
             if eval >= beta {
-                return beta;
+                return eval;
             }
 
             alpha = max(alpha, eval);
@@ -429,7 +422,7 @@ impl Engine {
         alpha
     }
 
-    pub fn order_moves(&self, moves: &mut Vec<Move>, hash_move: Option<Move>) {
+    pub fn order_moves(&self, moves: &mut [Move], hash_move: Option<Move>) {
         moves.sort_by_key(|a| {
             // search hash move first
             if let Some(m) = hash_move {
@@ -441,7 +434,7 @@ impl Engine {
             match a.capture_piece {
                 Some(piece) => {
                     Engine::get_piece_value(get_piece_type!(a.piece))
-                     - Engine::get_piece_value(get_piece_type!(piece))
+                        - Engine::get_piece_value(get_piece_type!(piece))
                     // order is opposite because sort_by_key sorts in ascending order
                 }
                 None => 0,

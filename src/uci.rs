@@ -18,8 +18,8 @@ use game::{
 
 use engine::Engine;
 
-const NAME: &'static str = "ThinnGopher";
-const AUTHOR: &'static str = "1ngopher";
+const NAME: &str = "ThinnGopher";
+const AUTHOR: &str = "1ngopher";
 
 pub struct UciEngine {
     pub engine: Engine,
@@ -50,7 +50,7 @@ impl UciEngine {
 
             let engine_handle = Arc::clone(&uciengine);
 
-            match &*input.split(" ").nth(0).unwrap() {
+            match input.split(' ').nth(0).unwrap() {
                 "isready" => println!("readyok"),
                 "ucinewgame" => {
                     uciengine = Arc::new(Mutex::new(UciEngine {
@@ -65,7 +65,7 @@ impl UciEngine {
 
                     let mut buf: String = String::new();
                     io::stdin().read_line(&mut buf)?;
-                    if buf.trim().to_owned() == "stop" {
+                    if buf.trim() == "stop" {
                         tx.send(true)?;
                     } else {
                         prev_input = Some(buf.trim().to_owned());
@@ -82,38 +82,35 @@ impl UciEngine {
         }
     }
 
-    fn position_command(&mut self, command: &String) {
+    fn position_command(&mut self, command: &str) {
         let mut builder = BoardBuilder::new();
         // ill fully implement later
         if command.contains("startpos") {
             builder.set_position(STARTPOS.to_owned());
         }
-        self.engine.board = builder.build();
+        self.engine = Engine::new(builder.build());
 
-        let mut i = 0;
-        for tok in command.split(" ") {
+        for (i, tok) in command.split(' ').enumerate() {
             if tok == "fen" {
-                self.engine.board = BoardBuilder::new()
-                    .set_position(format!(
-                        "{} {} {} {} {} {}",
-                        command.split(" ").nth(i + 1).unwrap(),
-                        command.split(" ").nth(i + 2).unwrap(),
-                        command.split(" ").nth(i + 3).unwrap(),
-                        command.split(" ").nth(i + 4).unwrap(),
-                        command.split(" ").nth(i + 5).unwrap(),
-                        command.split(" ").nth(i + 6).unwrap(),
-                    ))
-                    .build();
+                self.engine = Engine::new(
+                    BoardBuilder::new()
+                        .set_position(format!(
+                            "{} {} {} {} {} {}",
+                            command.split(' ').nth(i + 1).unwrap(),
+                            command.split(' ').nth(i + 2).unwrap(),
+                            command.split(' ').nth(i + 3).unwrap(),
+                            command.split(' ').nth(i + 4).unwrap(),
+                            command.split(' ').nth(i + 5).unwrap(),
+                            command.split(' ').nth(i + 6).unwrap(),
+                        ))
+                        .build(),
+                );
             }
-
-            i += 1;
         }
-
-        self.engine.repetition_table.clear();
 
         if command.contains("moves") {
             let mut found = false;
-            for tok in command.split(" ") {
+            for tok in command.split(' ') {
                 if tok == "moves" {
                     found = true;
                     continue;
@@ -131,12 +128,12 @@ impl UciEngine {
         }
     }
 
-    fn go_command(&mut self, command: &String, rx: Receiver<bool>) {
+    fn go_command(&mut self, command: &str, rx: Receiver<bool>) {
         const MOVES: u32 = 40;
         // ill fully implement later
         // self.engine.minimax(4, 0, MIN, MAX, PvNode::new(None), &mut Vec::new());
         //self.engine.negamax(6, 0, MIN, MAX);
-        let tokens: Vec<&str> = command.split(" ").collect();
+        let tokens: Vec<&str> = command.split(' ').collect();
 
         let mut btime: Option<i32> = None;
         let mut wtime: Option<i32> = None;
