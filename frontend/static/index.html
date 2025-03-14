@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title></title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="css/style.css" rel="stylesheet">
+    </head>
+    <body>
+        <script src="js/index.js" defer></script>
+        <canvas id="board" height=640 width=640>game board</canvas>
+        <button onclick="fetch_board(); draw();">fetch board</button>
+        <button onclick="print_legal_moves();">fetch legal moves</button>
+        <p id="legalmoves"></p>
+    </body>
+</html>

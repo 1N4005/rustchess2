@@ -24,6 +24,7 @@ const BLACK_QUEENSIDE_OCCUPANCY_MASK: u64 =
     0b01110000_00000000_00000000_00000000_00000000_00000000_00000000_00000000;
 
 pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move> {
+    // with_capacity so no allocations are needed during movegen
     let mut moves = Vec::with_capacity(218);
 
     let mut current_square: (u8, u8) = (0, 0);
@@ -52,7 +53,7 @@ pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move>
 
         for rank in board.board {
             for piece in rank {
-                if (get_piece_color!(piece) == WHITE) != board.turn {
+                if (get_piece_color!(piece) == WHITE) != board.turn || piece == 0 {
                     current_square.1 += 1;
                     continue;
                 }
@@ -128,7 +129,7 @@ pub fn generate_legal_moves(board: &mut Board, captures_only: bool) -> Vec<Move>
     if captures_only {
         moves.retain(|&m| m.capture_piece.is_some());
     }
-    moves.shrink_to_fit();
+    //moves.shrink_to_fit();
 
     moves
 }

@@ -1,4 +1,4 @@
-workspace = { members = [ "engine", "game","genmagics", "movegen"] }
+workspace = { members = [ "engine", "frontend", "game","genmagics", "movegen"] }
 [package]
 name = "rustchess2"
 version = "0.1.0"
