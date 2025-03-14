@@ -715,10 +715,16 @@ fn generate_pawn_captures(
             }
 
             let mut targets = 0;
-            if let Some(square) = board.en_passant_square {
-                if (7 - i % 8 > 0 && (6 - i / 8, 6 - i % 8) == square
-                    || 7 - i % 8 < 7 && (6 - i / 8, 8 - i % 8) == square)
-                    && (1 << get_bit_index!(square)) & allowed_targets > 0
+            if let Some(square) = board.en_passant_square { 
+                if 7 - i % 8 > 0 && (6 - i / 8, 6 - i % 8) == square
+                    || 7 - i % 8 < 7 && (6 - i / 8, 8 - i % 8) == square
+                    // remember the parenthesis around the above condition 
+                    //if this condition is uncommented
+
+                    // commented out this condition because it leads to issues
+                    // with double pawn push checks (8/8/3p4/1Pp4r/1K3pk1/8/4P1P1/1R6 w - c6 0 3),
+                    // en passant is rare enough where it should be fine
+                    // && (1 << get_bit_index!(square)) & allowed_targets > 0
                 {
                     // make sure that there are no sneaky checks making the capture illegal
                     // en passant should be rare enough that this doesnt impact performance
@@ -769,9 +775,10 @@ fn generate_pawn_captures(
 
             let mut targets = 0;
             if let Some(square) = board.en_passant_square {
-                if (7 - i % 8 > 0 && (8 - i / 8, 6 - i % 8) == square
-                    || 7 - i % 8 < 7 && (8 - i / 8, 8 - i % 8) == square)
-                    && (1 << get_bit_index!(square)) & allowed_targets > 0
+                if 7 - i % 8 > 0 && (8 - i / 8, 6 - i % 8) == square
+                    || 7 - i % 8 < 7 && (8 - i / 8, 8 - i % 8) == square
+                    // read the comment on the corresponding white version
+                    //&& (1 << get_bit_index!(square)) & allowed_targets > 0
                 {
                     let m = Move::new(
                         (7 - i / 8, 7 - i % 8),

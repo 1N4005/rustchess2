@@ -1,0 +1,13 @@
+TODO
+perft depth 5 and up on
+8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1 
+is not quite correct
+
+5: after b4b1 69653 correct is 69665
+4: after h5g5 4708 correct is 4709
+3(4708|4709): after a5b4 341 correct 342
+2(341|342): after c7c5 6 correct is 7
+
+====
+allowed_targets does not work when the checker is a double pushed pawn
+(potential en passant is disallowed because the en passant square is not in allowed targets)

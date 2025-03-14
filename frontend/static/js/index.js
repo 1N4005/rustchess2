@@ -61,6 +61,8 @@ function draw() {
     const light = "rgb(191 153 120)";
     const selected = "rgb(255, 255, 0)";
     const legal_move_color = "rgb(150, 150, 0)";
+
+    document.getElementById("idbox").innerHTML = "Game " + game_id;
     
     for (let r=0; r<8; r++) {
         for (let c=0; c<8; c++) {

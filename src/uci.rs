@@ -255,11 +255,15 @@ impl Display for UciEngine {
 
         writeln!(
             f,
-            "\n {} to move.",
+            "\n {} to move.\n {}",
             if self.engine.board.turn {
                 "White"
             } else {
                 "Black"
+            },
+            match self.engine.board.en_passant_square {
+                Some(x) => format!("{:?}", x),
+                None => "No en passant square".to_string(),
             }
         )?;
 
