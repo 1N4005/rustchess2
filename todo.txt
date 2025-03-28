@@ -11,3 +11,6 @@ is not quite correct
 ====
 allowed_targets does not work when the checker is a double pushed pawn
 (potential en passant is disallowed because the en passant square is not in allowed targets)
+
+====
+FIX: removed the allowed_targets check (en passant is rare enough where it makes no difference to performance)

@@ -8,10 +8,20 @@
     </head>
     <body>
         <script src="js/index.js" defer></script>
-        <h1 id="idbox"></h1>
-        <canvas id="board" height=600 width=600>game board</canvas>
-        <button onclick="fetch_board(); draw();">fetch board</button>
-        <button onclick="print_legal_moves();">fetch legal moves</button>
-        <p id="legalmoves"></p>
+        <div id="topdiv">
+            <h3 class="text" id="idbox"></h3>
+            <select id="botcolorchoose">
+                <option value="none">No engine</option>
+                <option value="white">Play as white</option>
+                <option value="black">Play as black</option>
+            </select>
+        </div>
+        <div id="bottom">
+            <canvas id="board" height=600 width=600>game board</canvas>
+            <button onclick="fetch_board(); draw();">fetch board</button>
+            <button onclick="print_legal_moves();">fetch legal moves</button>
+            <button onclick="fetch_best_move();">get best move</button>
+            <p class="text" id="legalmoves"></p>
+        </div>
     </body>
 </html>

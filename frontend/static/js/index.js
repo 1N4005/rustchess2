@@ -1,7 +1,8 @@
 const canvas = document.getElementById("board");
 
 const pieces = new Image();
-pieces.src = "img/Chess_Pieces_Sprite.svg";
+//pieces.src = "img/Chess_Pieces_Sprite.svg";
+pieces.src = "img/Chess_Pieces_Sprite_alt.png";
 
 const grid_width = canvas.clientWidth / 8;
 const grid_height = canvas.clientHeight / 8;
@@ -62,7 +63,7 @@ function draw() {
     const selected = "rgb(255, 255, 0)";
     const legal_move_color = "rgb(150, 150, 0)";
 
-    document.getElementById("idbox").innerHTML = "Game " + game_id;
+    document.getElementById("idbox").innerHTML = game_id;
     
     for (let r=0; r<8; r++) {
         for (let c=0; c<8; c++) {
@@ -156,6 +157,23 @@ async function print_legal_moves() {
     document.getElementById("legalmoves").innerHTML = moves;
 }
 
+async function fetch_best_move() {
+    const response = await fetch("/bestmove/" + game_id);
+    let res = await response.json();
+    console.log(res);
+}
+
+async function play_engine_move() {
+    let response = await fetch("/bestmove/" + game_id);
+    let res = await response.json();
+    console.log(res);
+    response = await fetch("/makemove/" + game_id + "/" + res);
+    res = await response.json();
+    console.log(res);
+    game_board = res;
+    draw();
+}
+
 window.addEventListener("click", async (event) => {
     console.log(event.clientX, event.clientY);
     const rect = canvas.getBoundingClientRect();
@@ -163,19 +181,54 @@ window.addEventListener("click", async (event) => {
     let col_clicked = Math.floor(8 * (event.clientX - rect.left) / canvas.clientWidth);
 
     legal_moves = await fetch_legal_moves(); 
+    
+    if (row_clicked >= 0 && row_clicked < 8 && col_clicked >= 0 && col_clicked < 8) {
+        const engine_turn = document.getElementById("botcolorchoose");
+        console.log(engine_turn.value);
+        const engine_to_move = engine_turn.value != "none";
+        const player_turn_bool = engine_turn.value == "white";
+        const engine_turn_bool = !player_turn_bool;
+        let player_can_move = true;
 
-    legal_moves.forEach(async (move) => {
-        let f = square_to_row_col(move.slice(0, 2));
-        let t = square_to_row_col(move.slice(2, 4));
+        if (engine_to_move) {
+            let from = square_to_row_col(legal_moves[0].slice(0, 2));
+            if (((game_board[from[0]][from[1]] & 0b11) == WHITE) == engine_turn_bool) {
+                player_can_move = false;
 
-        if (f[0] == selected_row && f[1] == selected_col && t[0] == row_clicked && t[1] == col_clicked) {
-            const response = await fetch("/makemove/" + game_id + "/" + move);
-            let res = await response.json();
-            console.log(res);
-            game_board = res;
-            draw();
+                play_engine_move(); 
+            } else {
+                player_can_move = true;
+            }
+
+            if (player_can_move) {
+                legal_moves.forEach(async (move) => {
+                    let f = square_to_row_col(move.slice(0, 2));
+                    let t = square_to_row_col(move.slice(2, 4));
+                        
+                    if (f[0] == selected_row && f[1] == selected_col && t[0] == row_clicked && t[1] == col_clicked) {
+                        const response = await fetch("/makemove/" + game_id + "/" + move);
+                        let res = await response.json();
+                        console.log(res);
+                        game_board = res;
+                        draw();
+                    }
+                });
+            }
+        } else {
+            legal_moves.forEach(async (move) => {
+                let f = square_to_row_col(move.slice(0, 2));
+                let t = square_to_row_col(move.slice(2, 4));
+                    
+                if (f[0] == selected_row && f[1] == selected_col && t[0] == row_clicked && t[1] == col_clicked) {
+                    const response = await fetch("/makemove/" + game_id + "/" + move);
+                    let res = await response.json();
+                    console.log(res);
+                    game_board = res;
+                    draw();
+                }
+            });
         }
-    });
+    }
 
     if (row_clicked == selected_row && col_clicked == selected_col) {
         selected_row = -1;
@@ -197,5 +250,6 @@ window.addEventListener("load", async () => {
         let res = await fetch_board();
         game_board = res;
     }
+
     draw();
 });

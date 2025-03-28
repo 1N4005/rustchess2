@@ -1,5 +1,6 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::Mutex, time::{Duration, Instant}};
 
+use engine::Engine;
 use game::{rand, Board, BoardBuilder, Move, Piece, STARTPOS};
 use movegen::generate_legal_moves;
 use rocket::{fs::FileServer, response::Redirect, serde::json::Json, State};
@@ -48,11 +49,30 @@ fn makemove(id: u64, uci: String, active_boards: &State<Mutex<HashMap<u64, Board
     Json(b.board)
 }
 
+#[get("/removegame/<id>")]
+fn removegame(id: u64, active_boards: &State<Mutex<HashMap<u64, Board>>>) {
+    active_boards.lock().unwrap().remove(&id);
+    println!("removed game {}", id);
+}
+
+#[get("/turn/<id>")]
+fn turn(id: u64, active_boards: &State<Mutex<HashMap<u64, Board>>>) -> Json<bool> {
+    Json(active_boards.lock().unwrap().get(&id).unwrap().turn)
+}
+
+#[get("/bestmove/<id>")]
+fn bestmove(id: u64, active_boards: &State<Mutex<HashMap<u64, Board>>>) -> Json<String> {
+    let b = active_boards.lock().unwrap().get(&id).unwrap().clone();
+    let mut engine = Engine::new(b);
+    engine.iterative_deepening_search(200, true, Instant::now(), Duration::from_millis(1000), None);
+    Json(engine.best_move.unwrap().to_uci())
+}
+
 #[launch]
 fn rocket() -> _ {
     let active_boards: Mutex<HashMap<u64, Board>> = Mutex::new(HashMap::new());
     rocket::build()
         .mount("/", FileServer::from("./static"))
-        .mount("/", routes![index, board, retboard, legalmoves, makemove])
+        .mount("/", routes![index, board, retboard, legalmoves, makemove, removegame, turn, bestmove])
         .manage(active_boards)
 }

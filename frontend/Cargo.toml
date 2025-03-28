@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 game = {path = "../game"}
 movegen = {path = "../movegen"}
+engine = {path = "../engine"}
 rocket = {version = "0.5.1", features = ["json"]}
